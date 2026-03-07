@@ -9,15 +9,11 @@ class FrameProcessor(QObject):
     def __init__(self):
         super().__init__()
         self._running: bool = False
-        
-    
-    def start(self):
-        ...
-
-    def stop(self):
-        ...
     
     @Slot(object)
     def process(self, frame):
-        print("FRAME PROCESSOR SEND FRAME")
+        """
+        Do stuff and drawing here
+        """
+
         self.result_ready.emit(frame)

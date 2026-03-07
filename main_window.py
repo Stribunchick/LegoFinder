@@ -1,16 +1,17 @@
-
 from typing import override
 import numpy as np
 
 from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtCore import Slot
 
+from add_part_window import AddPartWindow
 from gui.ui_mainwindow import Ui_MainWindow
 import sys
 from application.appcontroller import AppController
 from application.frame_display import FrameDisplay
 
 class MainWindow(QMainWindow, Ui_MainWindow):
+    add_part_window: AddPartWindow
     def __init__(self):
         super().__init__()
         self.setupUi(self)
@@ -31,9 +32,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.app_controller.stop_pipeline()
 
+    #On button click -> stop camera acquisition, open window, switch frame_getter destination to app_window's videoframe
+
     @Slot()
     def _on_add_part_clicked(self):
-        print("Add Button Clicked")
+        self.add_part_window = AddPartWindow()
+        self.add_part_window.show()
+        
 
     @Slot(object)
     def _update_frame(self, frame: np.ndarray):

@@ -13,7 +13,6 @@ class FrameGrabber(QObject):
         self.started = Signal()
         self.stopped = Signal()
         
-        
         self._running: bool = False
         
         self._timer = QTimer()
@@ -22,7 +21,6 @@ class FrameGrabber(QObject):
     
     def start(self):
         self._timer.start(30)
-        # print("FrameGrabber started")
         
 
     def stop(self):
