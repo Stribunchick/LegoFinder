@@ -1,4 +1,6 @@
+
 from typing import override
+import numpy as np
 
 from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtCore import Slot
@@ -6,13 +8,15 @@ from PySide6.QtCore import Slot
 from gui.ui_mainwindow import Ui_MainWindow
 import sys
 from application.appcontroller import AppController
+from application.frame_display import FrameDisplay
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
-
-        self.app_controller = AppController()
+        self.image_widget = FrameDisplay()
+        self.frame.layout().addWidget(self.image_widget)
+        self.app_controller = AppController(self)
         self.connect_signals()
     
     def connect_signals(self):
@@ -30,6 +34,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     @Slot()
     def _on_add_part_clicked(self):
         print("Add Button Clicked")
+
+    @Slot(object)
+    def _update_frame(self, frame: np.ndarray):
+        self.image_widget.update_frames(frame)
 
     @override
     def closeEvent(self, event):

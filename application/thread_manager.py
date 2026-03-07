@@ -6,9 +6,6 @@ class ThreadManager:
 
     def register(self, thread: QThread):
         self._threads.append(thread)
-    def start_up(self):
-        for t in self._threads:
-            t.start()
             
     def shutdown(self):
         for t in self._threads:

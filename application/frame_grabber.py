@@ -1,18 +1,18 @@
 from PySide6.QtCore import QTimer, Signal, QObject, Slot
 import cv2
-
+import numpy as np
 
 class FrameGrabber(QObject):
     started: Signal
     stopped: Signal
-    frame_ready: Signal
+    frame_ready = Signal(object)
     _running: bool
     
     def __init__(self):
         super().__init__()
         self.started = Signal()
         self.stopped = Signal()
-        self.frame_ready = Signal(object)
+        
         
         self._running: bool = False
         
@@ -22,11 +22,14 @@ class FrameGrabber(QObject):
     
     def start(self):
         self._timer.start(30)
+        # print("FrameGrabber started")
+        
 
     def stop(self):
         self._timer.stop()
     
     @Slot()
     def acquire(self):
-        print("FRAME GET")
-        self.frame_ready.emit("FRAME")
+        print("FRAME_GRABBER SEND FRAME")
+        self.frame_ready.emit(np.random.randint(0, 255, (480, 640), dtype=np.uint8))
+        

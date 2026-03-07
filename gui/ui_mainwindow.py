@@ -35,12 +35,6 @@ class Ui_MainWindow(object):
         self.frame.setFrameShadow(QFrame.Shadow.Raised)
         self.verticalLayout = QVBoxLayout(self.frame)
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.image_label = QLabel(self.frame)
-        self.image_label.setObjectName(u"image_label")
-        self.image_label.setMinimumSize(QSize(800, 600))
-
-        self.verticalLayout.addWidget(self.image_label)
-
 
         self.gridLayout.addWidget(self.frame, 0, 1, 5, 1)
 
@@ -132,7 +126,6 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))
-        self.image_label.setText(QCoreApplication.translate("MainWindow", u"Frame", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("MainWindow", u"GroupBox", None))
         self.static_select_part_label.setText(QCoreApplication.translate("MainWindow", u"\u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0434\u0435\u0442\u0430\u043b\u044c", None))
         self.static_conf_thres_label.setText(QCoreApplication.translate("MainWindow", u"\u041f\u043e\u0440\u043e\u0433 \u0443\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u0438", None))
