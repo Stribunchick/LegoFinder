@@ -104,7 +104,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.start_stop_acq_button = QPushButton(self.groupBox_3)
         self.start_stop_acq_button.setObjectName(u"start_stop_acq_button")
-        self.start_stop_acq_button.setCheckable(False)
+        self.start_stop_acq_button.setCheckable(True)
 
         self.horizontalLayout_3.addWidget(self.start_stop_acq_button)
 
@@ -132,7 +132,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))
-        self.image_label.setText(QCoreApplication.translate("MainWindow", u"Frame_group", None))
+        self.image_label.setText(QCoreApplication.translate("MainWindow", u"Frame", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("MainWindow", u"GroupBox", None))
         self.static_select_part_label.setText(QCoreApplication.translate("MainWindow", u"\u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0434\u0435\u0442\u0430\u043b\u044c", None))
         self.static_conf_thres_label.setText(QCoreApplication.translate("MainWindow", u"\u041f\u043e\u0440\u043e\u0433 \u0443\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u0438", None))
