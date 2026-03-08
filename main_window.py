@@ -26,7 +26,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     @Slot(bool)
     def _on_start_stop_toggled(self, checked: bool):
-        print(f"STATE START/STOP BUTTON INIT {checked}")
+        # print(f"STATE START/STOP BUTTON INIT {checked}")
         if checked:
             self.app_controller.start_pipeline()
         else:
