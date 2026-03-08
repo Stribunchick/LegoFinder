@@ -1,6 +1,7 @@
 from ast import main
 
 from PySide6.QtCore import QObject, QThread, Slot
+from application.frame_display import FrameDisplay
 from application.frame_grabber import FrameGrabber
 from application.frame_processor import FrameProcessor
 from application.thread_manager import ThreadManager
@@ -43,13 +44,23 @@ class AppController(QObject):
 
         self.frame_processor.result_ready.connect(self.main_window._update_frame)
         
+    def _disconnect_frame_grabber(self):
+        self.frame_grabber.frame_ready.disconnect()
+
+    def _connect_main_pipeline(self):
+        self._disconnect_frame_grabber()
+
+        self.frame_grabber.frame_ready.connect(self.frame_processor.process)
+
+    def switch_to_add_part(self, display: FrameDisplay):
+        self._disconnect_frame_grabber()
+        self.frame_grabber.frame_ready.connect(display.update_frames)
+
+    def switch_to_main(self):
+        self._connect_main_pipeline()
 
     def start_pipeline(self):
         self.frame_grabber.start()
-
-    # @Slot(object)
-    # def frame_update(self, frame):
-    #     self.main_window.image_widget.
 
     def stop_pipeline(self):
         self.frame_grabber.stop()

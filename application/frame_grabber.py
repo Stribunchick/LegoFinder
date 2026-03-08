@@ -28,6 +28,6 @@ class FrameGrabber(QObject):
     
     @Slot()
     def acquire(self):
-        print("FRAME_GRABBER SEND FRAME")
+        # print("FRAME_GRABBER SEND FRAME")
         self.frame_ready.emit(np.random.randint(0, 255, (480, 640), dtype=np.uint8))
         

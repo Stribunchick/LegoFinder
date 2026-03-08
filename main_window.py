@@ -36,7 +36,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     @Slot()
     def _on_add_part_clicked(self):
-        self.add_part_window = AddPartWindow()
+        self.add_part_window = AddPartWindow(self)
+        self.app_controller.switch_to_add_part(self.add_part_window.videoframe)
+        self.start_stop_acq_button.setChecked(True)
         self.add_part_window.show()
         
 
