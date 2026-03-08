@@ -64,3 +64,4 @@ class AppController(QObject):
 
     def stop_pipeline(self):
         self.frame_grabber.stop()
+

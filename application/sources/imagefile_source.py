@@ -3,6 +3,8 @@ import numpy as np
 
 class ImageFileSource:
 
+    fps: int
+    
     def __init__(self, path: str):
         self.path = path
         self.frame = None

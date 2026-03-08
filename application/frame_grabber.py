@@ -1,6 +1,7 @@
 from PySide6.QtCore import QTimer, Signal, QObject, Slot
 import cv2
 import numpy as np
+from application.source import Source
 
 class FrameGrabber(QObject):
     started: Signal
@@ -18,7 +19,9 @@ class FrameGrabber(QObject):
         self._timer = QTimer()
         self._timer.timeout.connect(self.acquire)
     
-    def set_source(self, source):
+    def set_source(self, source: Source):
+        if isinstance(source, Source):
+            print("True")
         if self.source is not None:
             self.source.close()
         self.source = source

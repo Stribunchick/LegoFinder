@@ -3,11 +3,13 @@ import numpy as np
 
 class VideoFileSource:
 
+    fps: int
+
     def __init__(self, path: str):
         self.path = path
         self.cap = None
 
-    def open(self):
+    def open(self) -> None:
         self.cap = cv2.VideoCapture(self.path)
 
     def read(self) -> np.ndarray | None:
@@ -16,6 +18,6 @@ class VideoFileSource:
             return None
         return frame
     
-    def close(self):
+    def close(self) -> None:
         if self.cap:
             self.cap.release()
