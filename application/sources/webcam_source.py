@@ -18,7 +18,7 @@ class CameraSource:
             return None
         
         ret, frame = self.cap.read()
-        
+
         if not ret:
             return None
         

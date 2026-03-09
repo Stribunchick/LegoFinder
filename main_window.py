@@ -45,6 +45,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     @Slot()
     def _on_load_image_button_clicked(self):
+        # self.start_stop_acq_button.setChecked(False)
+        self.app_controller.stop_pipeline()
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Open media",
@@ -52,6 +54,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             "Media Files (*.mp4 *.avi *.mov *.mkv *.jpg *.png *.bmp)"
         )
         if not file_path:
+            self.start_stop_acq_button.setChecked(True)
             return
         
         ext = Path(file_path).suffix.lower()
@@ -68,6 +71,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         if not self.start_stop_acq_button.isChecked():
             self.start_stop_acq_button.setChecked(True)
+        self.app_controller.start_pipeline()
 
     #On button click -> stop camera acquisition, open window, switch frame_getter destination to app_window's videoframe
     @Slot(int)
