@@ -20,7 +20,6 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
         self.staticframe = FrameDisplay()
         self.static_frame.layout().addWidget(self.staticframe)
         
-        
         self._connect_signals()
     
     def _connect_signals(self):

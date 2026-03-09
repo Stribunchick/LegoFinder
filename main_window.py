@@ -31,16 +31,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.start_stop_acq_button.toggled.connect(self._on_start_stop_toggled)
         self.add_part_button.clicked.connect(self._on_add_part_clicked)
         self.load_img_src_button.clicked.connect(self._on_load_image_button_clicked)
+        self.conf_thres_slider.valueChanged.connect(self._on_conf_thres_slider_changed)
 
     @Slot(bool)
     def _on_start_stop_toggled(self, checked: bool):
         # print(f"STATE START/STOP BUTTON INIT {checked}")
-        self.app_controller.frame_grabber.set_source(CameraSource(0))
+        if not isinstance(self.app_controller.frame_grabber.source, CameraSource):
+            self.app_controller.frame_grabber.set_source(CameraSource(0))
         if checked:
             self.app_controller.start_pipeline()
         else:
             self.app_controller.stop_pipeline()
 
+    @Slot()
     def _on_load_image_button_clicked(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -67,11 +70,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.start_stop_acq_button.setChecked(True)
 
     #On button click -> stop camera acquisition, open window, switch frame_getter destination to app_window's videoframe
+    @Slot(int)
+    def _on_conf_thres_slider_changed(self, value):
+        self.app_controller.update_thres(value)
 
     @Slot()
     def _on_add_part_clicked(self):
         self.add_part_window = AddPartWindow(self)
         self.app_controller.switch_to_add_part(self.add_part_window.videoframe)
+        self.app_controller.frame_grabber.set_source(CameraSource(0))
         self.start_stop_acq_button.setChecked(True)
         self.add_part_window.show()
         

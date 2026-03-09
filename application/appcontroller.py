@@ -1,6 +1,6 @@
 from ast import main
 
-from PySide6.QtCore import QObject, QThread, Slot
+from PySide6.QtCore import QObject, QThread, Signal, Slot
 from application.frame_display import FrameDisplay
 from application.frame_grabber import FrameGrabber
 from application.frame_processor import FrameProcessor
@@ -24,6 +24,8 @@ class AppController(QObject):
     frame_grabber: FrameGrabber
     frame_processor: FrameProcessor
 
+    set_conf_thres = Signal(int)
+
     def __init__(self, main_window):
         super().__init__()
         self.thread_manager = ThreadManager()
@@ -32,25 +34,33 @@ class AppController(QObject):
         self._create_connections()
 
 
+    @Slot()
     def _create_workers(self):
         self.frame_grabber, self.frame_grabber_thread = create_worker(FrameGrabber(), "FrameGrabberThread")
         self.thread_manager.register(self.frame_grabber_thread)
         self.frame_processor, self.frame_processor_thread = create_worker(FrameProcessor(), "FrameProcessorThread")
         self.thread_manager.register(self.frame_processor_thread)
 
+    @Slot()
     def _create_connections(self):
         # grabber -> processor
         self.frame_grabber.frame_ready.connect(self.frame_processor.process)
 
         self.frame_processor.result_ready.connect(self.main_window._update_frame)
-        
+
+        self.set_conf_thres.connect(self.frame_processor.update_conf_thres)
+    @Slot()
     def _disconnect_frame_grabber(self):
         self.frame_grabber.frame_ready.disconnect()
 
+    @Slot()
     def _connect_main_pipeline(self):
         self._disconnect_frame_grabber()
 
         self.frame_grabber.frame_ready.connect(self.frame_processor.process)
+
+    def update_thres(self, value):
+        self.set_conf_thres.emit(value)
 
     def switch_to_add_part(self, display: FrameDisplay):
         self._disconnect_frame_grabber()

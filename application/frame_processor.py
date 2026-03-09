@@ -5,6 +5,7 @@ class FrameProcessor(QObject):
     started = Signal()
     stopped = Signal()
     result_ready = Signal(object)
+    conf_thres: float
     _running: bool
     def __init__(self):
         super().__init__()
@@ -17,3 +18,9 @@ class FrameProcessor(QObject):
         """
 
         self.result_ready.emit(frame)
+
+
+    @Slot(float)
+    def update_conf_thres(self, value):
+        self.conf_thres = value / 100
+        
