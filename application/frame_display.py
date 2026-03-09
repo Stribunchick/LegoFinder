@@ -52,4 +52,10 @@ class FrameDisplay(QLabel):
     def set_bg_color(self, color):
         self._bg_color = color
         self._update_pixmap()
-   
+
+    def copy_frame(self):
+        frame = self._last_frame.copy()
+        
+        return frame
+
+       
