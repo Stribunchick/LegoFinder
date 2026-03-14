@@ -3,7 +3,7 @@ import cv2
 
 # from lego_detector import LegoDetector
 
-from tests1.pipeline import Pipeline
+from pipeline import Pipeline
 
 class FrameProcessor(QObject):
     started = Signal()
