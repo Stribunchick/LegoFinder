@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1121</width>
-    <height>289</height>
+    <height>296</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -53,9 +53,6 @@
             <string>Выбрать деталь</string>
            </property>
           </widget>
-         </item>
-         <item>
-          <widget class="QComboBox" name="select_part_combo_box"/>
          </item>
         </layout>
        </item>
@@ -133,7 +130,7 @@
      <x>0</x>
      <y>0</y>
      <width>1121</width>
-     <height>22</height>
+     <height>33</height>
     </rect>
    </property>
   </widget>

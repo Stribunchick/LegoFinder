@@ -50,7 +50,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="lineEdit"/>
+      <widget class="QLineEdit" name="part_name_lineedit"/>
      </item>
     </layout>
    </item>
@@ -67,6 +67,13 @@
       <widget class="QPushButton" name="load_image_button">
        <property name="text">
         <string>Загрузить изображение</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="process_template_button">
+       <property name="text">
+        <string>Обработать изображение</string>
        </property>
       </widget>
      </item>

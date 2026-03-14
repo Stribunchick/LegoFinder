@@ -1,8 +1,10 @@
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QWidget
+from PySide6.QtWidgets import QFileDialog, QWidget, QMessageBox
 from PySide6.QtCore import Slot
 import cv2
+
+from tests1.create_descriptors import DescriptorCreator
 
 from gui.ui_add_part_window import Ui_AddPartWindow
 from application.frame_display import FrameDisplay
@@ -14,6 +16,7 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
         super().__init__()
         self.setupUi(self)
         self.main_window = parent
+        self.descriptor = DescriptorCreator("./tests1/images")
         self.videoframe = FrameDisplay()
         self.videostream_frame.layout().addWidget(self.videoframe)
         
@@ -25,6 +28,7 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
     def _connect_signals(self):
         self.snapshot_button.clicked.connect(self._on_snapshot_button_clicked)
         self.load_image_button.clicked.connect(self._on_load_image_button_clicked)
+        self.process_template_button.clicked.connect(self._on_process_template_button_clicked)
         
     def _on_snapshot_button_clicked(self):
         frame = self.videoframe.copy_frame()
@@ -45,7 +49,23 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
         if ext in [".jpg", ".jpeg", ".png", ".bmp"]:
             image = cv2.imread(file_path)
             self.staticframe.update_frames(image)
+    
+    def _on_process_template_button_clicked(self):
+        try:
+            frame = self.staticframe.copy_frame()
+        except Exception as e:
+            print(e)
+            return None
         
+        try:
+            name = self.part_name_lineedit.text()
+        except Exception as e:
+            warn = QMessageBox()
+            warn.text("Введите название детали")
+            warn.show()
+            return None
+        self.descriptor.create_descriptor(frame, name)
+
 
     def closeEvent(self, event):
         self.main_window.app_controller.switch_to_main()

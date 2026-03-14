@@ -16,12 +16,15 @@ from application.frame_display import FrameDisplay
 from application.sources.videofile_source import VideoFileSource
 from application.sources.webcam_source import CameraSource 
 from application.sources.imagefile_source import ImageFileSource
+from application.des_combo_box import FileComboBox
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     add_part_window: AddPartWindow
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.select_part_combo_box = FileComboBox("./tests1/images")
+        self.horizontalLayout.addWidget(self.select_part_combo_box)
         self.image_widget = FrameDisplay()
         self.frame.layout().addWidget(self.image_widget)
         self.app_controller = AppController(self)
@@ -32,6 +35,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.add_part_button.clicked.connect(self._on_add_part_clicked)
         self.load_img_src_button.clicked.connect(self._on_load_image_button_clicked)
         self.conf_thres_slider.valueChanged.connect(self._on_conf_thres_slider_changed)
+        self.select_part_combo_box.activated.connect(self.show_list)
 
     @Slot(bool)
     def _on_start_stop_toggled(self, checked: bool):
@@ -91,6 +95,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _update_frame(self, frame: np.ndarray):
         self.image_widget.update_frames(frame)
 
+
+    def show_list(self):
+        self.select_part_combo_box.showPopup()
     @override
     def closeEvent(self, event):
         self.app_controller.thread_manager.shutdown()
