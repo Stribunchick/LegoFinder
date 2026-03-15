@@ -16,7 +16,7 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
         super().__init__()
         self.setupUi(self)
         self.main_window = parent
-        self.descriptor = DescriptorCreator("./tests1/images")
+        self.descriptor = DescriptorCreator("./data")
         self.videoframe = FrameDisplay()
         self.videostream_frame.layout().addWidget(self.videoframe)
         
@@ -50,6 +50,7 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
             image = cv2.imread(file_path)
             self.staticframe.update_frames(image)
     
+    # починить message_box
     def _on_process_template_button_clicked(self):
         try:
             frame = self.staticframe.copy_frame()
@@ -61,10 +62,10 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
             name = self.part_name_lineedit.text()
         except Exception as e:
             warn = QMessageBox()
-            warn.text("Введите название детали")
+            warn.setText("Введите название детали")
             warn.show()
             return None
-        self.descriptor.create_descriptor(frame, name)
+        self.descriptor.create_part_description(frame, name)
 
 
     def closeEvent(self, event):

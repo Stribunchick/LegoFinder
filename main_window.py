@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import override
 import numpy as np
 import sys
+import os
 
 from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow
 from PySide6.QtCore import Slot
@@ -23,7 +24,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
-        self.select_part_combo_box = FileComboBox("./tests1/images")
+        self.folder = os.path.join(os.getcwd(),"data")
+        self.select_part_combo_box = FileComboBox(self.folder)
         self.horizontalLayout.addWidget(self.select_part_combo_box)
         self.image_widget = FrameDisplay()
         self.frame.layout().addWidget(self.image_widget)
@@ -36,6 +38,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.load_img_src_button.clicked.connect(self._on_load_image_button_clicked)
         self.conf_thres_slider.valueChanged.connect(self._on_conf_thres_slider_changed)
         self.select_part_combo_box.activated.connect(self.show_list)
+        self.select_part_combo_box.currentTextChanged.connect(self.select_part_from_list)
 
     @Slot(bool)
     def _on_start_stop_toggled(self, checked: bool):
@@ -98,6 +101,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def show_list(self):
         self.select_part_combo_box.showPopup()
+    
+    @Slot(str)
+    def select_part_from_list(self, det_name):
+        # Передать название файла в папке
+        self.app_controller.change_part(det_name)
+
+
     @override
     def closeEvent(self, event):
         self.app_controller.thread_manager.shutdown()

@@ -25,9 +25,10 @@ class AppController(QObject):
     frame_processor: FrameProcessor
 
     set_conf_thres = Signal(int)
-
-    def __init__(self, main_window):
+    
+    def __init__(self, main_window, folder="./data"):
         super().__init__()
+        self.folder = folder
         self.thread_manager = ThreadManager()
         self.main_window = main_window
         self._create_workers()
@@ -38,7 +39,7 @@ class AppController(QObject):
     def _create_workers(self):
         self.frame_grabber, self.frame_grabber_thread = create_worker(FrameGrabber(), "FrameGrabberThread")
         self.thread_manager.register(self.frame_grabber_thread)
-        self.frame_processor, self.frame_processor_thread = create_worker(FrameProcessor(), "FrameProcessorThread")
+        self.frame_processor, self.frame_processor_thread = create_worker(FrameProcessor(self.folder), "FrameProcessorThread")
         self.thread_manager.register(self.frame_processor_thread)
 
     @Slot()
@@ -75,3 +76,5 @@ class AppController(QObject):
     def stop_pipeline(self):
         self.frame_grabber.stop()
 
+    def change_part(self, det_name):
+        self.frame_processor.pipeline.update_template(det_name)

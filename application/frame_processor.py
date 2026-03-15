@@ -11,11 +11,12 @@ class FrameProcessor(QObject):
     result_ready = Signal(object)
     conf_thres: float
     _running: bool
-    def __init__(self):
+    def __init__(self, folder):
         super().__init__()
+        self.folder = folder
         self._running: bool = False
         self.desired_part = None
-        self.pipeline = Pipeline()
+        self.pipeline = Pipeline(self.folder)
     
     @Slot(object)
     def process(self, frame):
@@ -31,8 +32,6 @@ class FrameProcessor(QObject):
     def update_conf_thres(self, value):
         self.conf_thres = value / 100
     
-    def update_detected_detail(self, detail):
-        self.desired_part = detail
 
 if __name__ == "__main__":
     ...

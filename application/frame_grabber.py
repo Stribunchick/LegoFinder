@@ -28,7 +28,7 @@ class FrameGrabber(QObject):
         self.source.open()
     
     def start(self):
-        self._timer.start(30)
+        self._timer.start(100)
         
 
     def stop(self):
