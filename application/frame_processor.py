@@ -3,7 +3,7 @@ import cv2
 
 # from lego_detector import LegoDetector
 
-from pipeline import Pipeline
+from cv_pipeline.pipeline import Pipeline
 
 class FrameProcessor(QObject):
     started = Signal()
@@ -31,6 +31,7 @@ class FrameProcessor(QObject):
     @Slot(float)
     def update_conf_thres(self, value):
         self.conf_thres = value / 100
+        self.pipeline.comparator.set_conf_thres(self.conf_thres)
     
 
 if __name__ == "__main__":

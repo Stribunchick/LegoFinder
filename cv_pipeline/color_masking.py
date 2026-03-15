@@ -20,7 +20,7 @@ class ColorMatcher:
         mask_comb |= mask
         
         contours, _ = cv2.findContours(mask_comb, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        min_area = 500
+        min_area = 250
         contour_filter = [c for c in contours if cv2.contourArea(c) > min_area]
 
         return contour_filter

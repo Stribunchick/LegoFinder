@@ -212,3 +212,5 @@ __marimo__/
 tests1/
 .vscode
 .vscode/
+.resnet_pipeline
+resnet_pipeline/

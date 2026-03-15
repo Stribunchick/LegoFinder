@@ -31,6 +31,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.frame.layout().addWidget(self.image_widget)
         self.app_controller = AppController(self)
         self.connect_signals()
+        self.webcamsrc = 0
     
     def connect_signals(self):
         self.start_stop_acq_button.toggled.connect(self._on_start_stop_toggled)
@@ -44,7 +45,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _on_start_stop_toggled(self, checked: bool):
         # print(f"STATE START/STOP BUTTON INIT {checked}")
         if not isinstance(self.app_controller.frame_grabber.source, CameraSource):
-            self.app_controller.frame_grabber.set_source(CameraSource(0))
+            self.app_controller.frame_grabber.set_source(CameraSource(self.webcamsrc))
         if checked:
             self.app_controller.start_pipeline()
         else:
@@ -89,7 +90,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _on_add_part_clicked(self):
         self.add_part_window = AddPartWindow(self)
         self.app_controller.switch_to_add_part(self.add_part_window.videoframe)
-        self.app_controller.frame_grabber.set_source(CameraSource(0))
+        self.app_controller.frame_grabber.set_source(CameraSource(self.webcamsrc))
         self.start_stop_acq_button.setChecked(True)
         self.add_part_window.show()
         

@@ -2,12 +2,12 @@ import os
 
 import numpy as np
 import cv2
-
+import matplotlib.pyplot as plt
 
 class DescriptorCreator:
     def __init__(self, folder='data') -> None:
         self.folder = folder
-        self.feature_detector = cv2.SIFT.create()
+        self.feature_detector = cv2.ORB.create()
 
     def create_part_description(self, frame, name):
         mask = self.highlight_detail(frame)
@@ -32,6 +32,11 @@ class DescriptorCreator:
         
         lower = np.percentile(pixels, 5, axis=0)
         upper = np.percentile(pixels, 95, axis=0)
+
+        margin = np.array([10, 30, 30])
+
+        lower = np.maximum(lower - margin, [0, 0, 0])
+        upper = np.minimum(upper + margin, [179, 255, 255])
         
         return lower.astype(np.uint8), upper.astype(np.uint8)
     
@@ -69,7 +74,9 @@ class DescriptorCreator:
 
         markers = cv2.watershed(img, markers)
         img[markers==-1] = [255, 0, 0]
-
+        plt.figure()
+        plt.imshow(img)
+        plt.show()
         mask = np.zeros(gray.shape, dtype=np.uint8)
         mask[markers > 1] = 255
         return mask

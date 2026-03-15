@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QFileDialog, QWidget, QMessageBox
 from PySide6.QtCore import Slot
 import cv2
 
-from create_descriptors import DescriptorCreator
+from cv_pipeline.create_descriptors import DescriptorCreator
 
 from gui.ui_add_part_window import Ui_AddPartWindow
 from application.frame_display import FrameDisplay
