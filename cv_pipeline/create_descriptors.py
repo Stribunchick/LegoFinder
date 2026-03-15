@@ -2,12 +2,12 @@ import os
 
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 class DescriptorCreator:
     def __init__(self, folder='data') -> None:
         self.folder = folder
-        self.feature_detector = cv2.ORB.create()
+        self.feature_detector = cv2.SIFT.create()
 
     def create_part_description(self, frame, name):
         mask = self.highlight_detail(frame)
@@ -74,9 +74,10 @@ class DescriptorCreator:
 
         markers = cv2.watershed(img, markers)
         img[markers==-1] = [255, 0, 0]
-        plt.figure()
-        plt.imshow(img)
-        plt.show()
+        # plt.figure()
+        # plt.imshow(img)
+        # plt.show()
+        cv2.imshow("test", img)
         mask = np.zeros(gray.shape, dtype=np.uint8)
         mask[markers > 1] = 255
         return mask

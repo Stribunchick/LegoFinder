@@ -6,19 +6,19 @@ class Comparator:
     def __init__(self, folder):
         self.folder = folder
         self.desriptor = None
-        self.sift  = cv2.ORB.create()
+        self.sift  = cv2.SIFT.create()
         FLANN_INDEX_KDTREE = 1
         index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
         search_params = dict(checks=50)
-        # self.matcher = cv2.FlannBasedMatcher(index_params, search_params)
-        self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
+        self.matcher = cv2.FlannBasedMatcher(index_params, search_params)
+        # self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
         self.MIN_NUM_GOOD_MATCHES = 10
         self.conf_thres = 1.0
 
     # create files, images, descriptors globals
     def compare(self, query):
         kp, query_ds = self.sift.detectAndCompute(query, None)
-        cv2.drawKeypoints(query, kp, query, (51, 163, 236), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        # cv2.drawKeypoints(query, kp, query, (51, 163, 236), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
         matches = self.matcher.knnMatch(query_ds, self.desriptor, k=2)
         

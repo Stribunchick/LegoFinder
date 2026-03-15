@@ -21,12 +21,13 @@ class Pipeline:
                 x,y,w,h = cv2.boundingRect(cnt)
                 roi = frame[y:y+h, x:x+w]
                 
-                temp_img = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+                temp_img = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
                 match = self.comparator.compare(temp_img)
                 if match:
                     cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
+                    cv2.putText(frame, self.det_name, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                     print("[SIFT] MATCH")
-                print("[COLOR] MATCH")
+                # print("[COLOR] MATCH")
         return frame
 
     def update_template(self, det_name):
