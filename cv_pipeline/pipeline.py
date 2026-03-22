@@ -25,7 +25,7 @@ class Pipeline:
                 match = self.comparator.compare(temp_img)
                 if match:
                     cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
-                    cv2.putText(frame, self.det_name, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                    cv2.putText(frame, f"{self.det_name}", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                     print("[SIFT] MATCH")
                 # print("[COLOR] MATCH")
         return frame

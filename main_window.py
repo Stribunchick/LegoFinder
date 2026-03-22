@@ -84,7 +84,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     #On button click -> stop camera acquisition, open window, switch frame_getter destination to app_window's videoframe
     @Slot(int)
     def _on_conf_thres_slider_changed(self, value):
-        self.app_controller.update_thres(value)
+        self.app_controller.update_thres(100-value)
 
     @Slot()
     def _on_add_part_clicked(self):

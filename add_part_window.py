@@ -29,7 +29,7 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
         self.snapshot_button.clicked.connect(self._on_snapshot_button_clicked)
         self.load_image_button.clicked.connect(self._on_load_image_button_clicked)
         self.process_template_button.clicked.connect(self._on_process_template_button_clicked)
-        
+    
     def _on_snapshot_button_clicked(self):
         frame = self.videoframe.copy_frame()
         self.staticframe.update_frames(frame)

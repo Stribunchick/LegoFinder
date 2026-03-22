@@ -49,7 +49,7 @@ class DescriptorCreator:
         # Remove noise.
         kernel = np.ones((3,3), np.uint8)
         opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel,
-                                iterations=2)
+                                iterations=5)
 
         # Find the sure background region.
         sure_bg = cv2.dilate(opening, kernel, iterations=3)

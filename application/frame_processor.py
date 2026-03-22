@@ -28,7 +28,7 @@ class FrameProcessor(QObject):
         self.result_ready.emit(img)
 
 
-    @Slot(float)
+    @Slot(int)
     def update_conf_thres(self, value):
         self.conf_thres = value / 100
         self.pipeline.comparator.set_conf_thres(self.conf_thres)

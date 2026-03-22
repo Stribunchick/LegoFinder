@@ -18,8 +18,8 @@ class Comparator:
     # create files, images, descriptors globals
     def compare(self, query):
         kp, query_ds = self.sift.detectAndCompute(query, None)
-        # cv2.drawKeypoints(query, kp, query, (51, 163, 236), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
+        cv2.drawKeypoints(query, kp, query, (51, 163, 236), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        cv2.imshow("test", query)
         matches = self.matcher.knnMatch(query_ds, self.desriptor, k=2)
         
         good_matches = []
