@@ -1,4 +1,5 @@
-from PySide6.QtCore import QTimer, Signal, QObject, Slot
+# -*- coding: utf-8 -*-
+from PySide6.QtCore import QTimer, Signal, QObject, Slot, Qt
 from application.source import Source
 
 
@@ -10,6 +11,7 @@ class FrameGrabber(QObject):
         super().__init__()
         self.source = None
         self._timer = QTimer(self)
+        self._timer.setTimerType(Qt.TimerType.PreciseTimer)
         self._timer.timeout.connect(self.acquire)
 
     @Slot(object)
@@ -26,7 +28,7 @@ class FrameGrabber(QObject):
         """Запустить периодический захват кадров."""
         if self.source is None or self._timer.isActive():
             return
-        self._timer.start(50)
+        self._timer.start(33)
 
     @Slot()
     def stop(self):

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from PySide6.QtWidgets import QLabel, QSizePolicy
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPainter, QPixmap, QColor

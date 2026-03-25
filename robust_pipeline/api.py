@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from robust_pipeline.detector import DetectionResult, RobustPartDetector
@@ -22,11 +23,14 @@ class RobustPartMatchingPipeline:
     def load_reference(self, name: str):
         """Загрузить и сохранить в памяти эталон для последующей детекции."""
         self.current_reference = self.reference_manager.load_reference(name)
+        self.detector.reset_tracking()
+        self.detector.warmup(self.current_reference)
         return self.current_reference
 
     def clear_reference(self):
         """Сбросить текущий выбранный эталон."""
         self.current_reference = None
+        self.detector.reset_tracking()
 
     def process_frame(self, frame_bgr, confidence_threshold: float = 50.0) -> DetectionResult | None:
         """Запустить детекцию активного эталона на кадре."""

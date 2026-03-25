@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import json
@@ -27,6 +28,7 @@ class RobustReferenceManager:
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.max_reference_side = max_reference_side
+        self.max_features_per_view = 560
         self.feature_name = "sift" if hasattr(cv2, "SIFT_create") else "akaze"
         self.extractor = self._create_extractor()
 
@@ -34,7 +36,7 @@ class RobustReferenceManager:
         """Создать экстрактор признаков для представлений эталона."""
         if self.feature_name == "sift":
             return cv2.SIFT_create(
-                nfeatures=2200,
+                nfeatures=1400,
                 contrastThreshold=0.018,
                 edgeThreshold=10,
                 sigma=1.4,
@@ -195,12 +197,21 @@ class RobustReferenceManager:
             if int(np.count_nonzero(point_mask)) < 18:
                 continue
 
+            view_descriptors = descriptors[valid][point_mask]
+            view_points_valid = view_points[valid][point_mask].astype(np.float32)
+            base_points_selected = base_points_valid[point_mask].astype(np.float32)
+            view_descriptors, view_points_valid, base_points_selected = self._trim_view_features(
+                view_descriptors,
+                view_points_valid,
+                base_points_selected,
+            )
+
             views.append(
                 {
                     "label": affine_view.label,
-                    "descriptors": descriptors[valid][point_mask].astype(np.float32 if self.feature_name == "sift" else descriptors.dtype),
-                    "points": view_points[valid][point_mask].astype(np.float32),
-                    "base_points": base_points_valid[point_mask].astype(np.float32),
+                    "descriptors": view_descriptors.astype(np.float32 if self.feature_name == "sift" else view_descriptors.dtype),
+                    "points": view_points_valid,
+                    "base_points": base_points_selected,
                     "base_to_view": base_to_view,
                 }
             )
@@ -242,6 +253,10 @@ class RobustReferenceManager:
 
         for index in range(len(base_to_view)):
             transform = base_to_view[index]
+            descriptors = np.asarray(descriptors_list[index], dtype=np.float32 if self.feature_name == "sift" else np.uint8)
+            points = np.asarray(points_list[index], dtype=np.float32)
+            base_points = np.asarray(base_points_list[index], dtype=np.float32)
+            descriptors, points, base_points = self._trim_view_features(descriptors, points, base_points)
             affine_2x3 = transform[:2, :]
             view_image = cv2.warpAffine(
                 image,
@@ -275,9 +290,9 @@ class RobustReferenceManager:
             views.append(
                 {
                     "label": str(labels[index]),
-                    "descriptors": np.asarray(descriptors_list[index], dtype=np.float32 if self.feature_name == "sift" else np.uint8),
-                    "points": np.asarray(points_list[index], dtype=np.float32),
-                    "base_points": np.asarray(base_points_list[index], dtype=np.float32),
+                    "descriptors": descriptors,
+                    "points": points,
+                    "base_points": base_points,
                     "base_to_view": transform,
                     "mask": view_mask,
                     "edges": view_edges,
@@ -294,6 +309,19 @@ class RobustReferenceManager:
             )
 
         return views
+
+    def _trim_view_features(
+        self,
+        descriptors: np.ndarray,
+        points: np.ndarray,
+        base_points: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Ограничить число признаков в одном представлении эталона."""
+        if len(points) <= self.max_features_per_view:
+            return descriptors, points, base_points
+
+        indices = np.linspace(0, len(points) - 1, self.max_features_per_view, dtype=np.int32)
+        return descriptors[indices], points[indices], base_points[indices]
 
     def _upgrade_reference_item(self, item_dir: Path, fallback_name: str) -> None:
         """Пересобрать старый эталон в соответствии с текущей схемой."""
