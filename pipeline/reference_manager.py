@@ -20,7 +20,7 @@ from pipeline.preprocessing import (
 )
 
 
-class RobustReferenceManager:
+class ReferenceManager:
     schema_version = 2
 
     def __init__(self, storage_dir: str = "data/robust_templates", max_reference_side: int = 960):
@@ -376,7 +376,7 @@ class RobustReferenceManager:
             return np.zeros((4, 2), dtype=np.float32)
 
         points = cv2.boxPoints(cv2.minAreaRect(contour)).astype(np.float32)
-        return RobustReferenceManager._order_points(points)
+        return ReferenceManager._order_points(points)
 
     @staticmethod
     def _hsv_stats(image_bgr: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

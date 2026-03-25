@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
 
-from pipeline import RobustPartMatchingPipeline, draw_detection
+from pipeline import PartMatchingPipeline, draw_detection
 
 
 class FrameProcessor(QObject):
@@ -17,7 +17,7 @@ class FrameProcessor(QObject):
         self.folder = folder
         self._running = False
         self.conf_thres: float = 0.5
-        self.pipeline = RobustPartMatchingPipeline(storage_dir=folder)
+        self.pipeline = PartMatchingPipeline(storage_dir=folder)
         self._pending_frame = None
         self._process_timer = QTimer(self)
         self._process_timer.setSingleShot(True)

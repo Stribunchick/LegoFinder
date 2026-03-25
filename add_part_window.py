@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from application.frame_display import FrameDisplay
 from gui.add_part_window_ui import Ui_AddPartWindow
-from pipeline import RobustReferenceManager
+from pipeline import ReferenceManager
 
 
 class AddPartWindow(QWidget, Ui_AddPartWindow):
@@ -21,7 +21,7 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
         self.setupUi(self)
         self.main_window = parent
         self.reference_folder = reference_folder
-        self.reference_manager = RobustReferenceManager(reference_folder)
+        self.reference_manager = ReferenceManager(reference_folder)
 
         os.makedirs(self.reference_folder, exist_ok=True)
 

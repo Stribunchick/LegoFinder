@@ -26,7 +26,7 @@ class DetectionResult:
     debug: dict
 
 
-class RobustPartDetector:
+class PartDetector:
     def __init__(self):
         """Создать детектор и его компоненты для сопоставления признаков."""
         self.feature_name = "sift" if hasattr(cv2, "SIFT_create") else "akaze"

@@ -1,11 +1,11 @@
-from pipeline.api import RobustPartMatchingPipeline
-from pipeline.detector import RobustPartDetector
-from pipeline.reference_manager import RobustReferenceManager
+from pipeline.api import PartMatchingPipeline
+from pipeline.detector import PartDetector
+from pipeline.reference_manager import ReferenceManager
 from pipeline.visualization import draw_detection
 
 __all__ = [
-    "RobustPartDetector",
-    "RobustPartMatchingPipeline",
-    "RobustReferenceManager",
+    "PartDetector",
+    "PartMatchingPipeline",
+    "ReferenceManager",
     "draw_detection",
 ]

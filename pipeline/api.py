@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from pipeline.detector import DetectionResult, RobustPartDetector
-from pipeline.reference_manager import RobustReferenceManager
+from pipeline.detector import DetectionResult, PartDetector
+from pipeline.reference_manager import ReferenceManager
 
 
-class RobustPartMatchingPipeline:
+class PartMatchingPipeline:
     def __init__(self, storage_dir: str = "data/robust_templates"):
         """Инициализировать хранилище эталонов и экземпляр детектора."""
-        self.reference_manager = RobustReferenceManager(storage_dir=storage_dir)
-        self.detector = RobustPartDetector()
+        self.reference_manager = ReferenceManager(storage_dir=storage_dir)
+        self.detector = PartDetector()
         self.current_reference = None
 
     def add_reference(self, name, image_bgr):
