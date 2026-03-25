@@ -52,7 +52,7 @@ class FrameProcessor(QObject):
     def update_conf_thres(self, value):
         """Обновить порог уверенности детектора по значению из интерфейса."""
         self.conf_thres = value / 100
-        print(f"[FrameProcessor] Threshold updated to {self.conf_thres:.2f}")
+        # print(f"[FrameProcessor] Threshold updated to {self.conf_thres:.2f}")
 
     @Slot(str)
     def switch_reference(self, reference_name):

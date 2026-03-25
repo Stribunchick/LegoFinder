@@ -71,28 +71,27 @@ class PartDetector:
             return cv2.FlannBasedMatcher(index_params, search_params)
         return cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
 
-    def detect(
+    def detect_all(
         self,
         frame_bgr: np.ndarray,
         reference: dict | None,
         confidence_threshold: float = 50.0,
-    ) -> DetectionResult | None:
-        """Найти активный эталонный объект на кадре."""
+    ) -> list[DetectionResult]:
+        """Найти все объекты активного эталона на кадре выше заданного порога."""
         if frame_bgr is None or reference is None:
-            return None
+            return []
 
         self._frame_index += 1
         if self._tracked_reference_name not in (None, reference["name"]):
             self.reset_tracking()
 
-        resize_limit = self._tracked_max_side if self._tracked_bbox_norm is not None else self._global_max_side
-        frame_small, scale = resize_if_needed(frame_bgr, max_side=resize_limit)
+        frame_small, scale = resize_if_needed(frame_bgr, max_side=self._global_max_side)
         gray = normalize_gray(frame_small)
         focus_bbox = self._predict_focus_bbox(frame_small.shape, reference["name"])
-        proposal_mask = self._combined_candidate_mask(frame_small, reference, focus_bbox=focus_bbox)
+        proposal_mask = self._combined_candidate_mask(frame_small, reference)
         local_mask = self._restrict_mask_to_bbox(proposal_mask, focus_bbox, margin=12) if focus_bbox else proposal_mask
 
-        best_candidate = None
+        candidates: list[dict] = []
 
         if focus_bbox is not None:
             tracked_candidate = self._tracked_fast_candidate(
@@ -102,48 +101,40 @@ class PartDetector:
                 proposal_mask=local_mask,
             )
             if tracked_candidate is not None:
-                best_candidate = tracked_candidate
+                candidates.append(tracked_candidate)
 
-        proposal_pixels = int(cv2.countNonZero(local_mask if focus_bbox is not None else proposal_mask))
-        candidate_mask = local_mask if focus_bbox is not None and cv2.countNonZero(local_mask) > 0 else proposal_mask
-        geometry_checked = False
-
-        if focus_bbox is None and proposal_pixels >= self._min_proposal_pixels:
-            quick_candidate = self._proposal_from_candidates(
+        proposal_pixels = int(cv2.countNonZero(proposal_mask))
+        contour_limit = self._max_candidate_contours
+        candidates.extend(
+            self._proposal_candidates(
                 frame_small,
                 gray,
                 reference,
-                candidate_mask,
-                max_candidates=min(4, self._max_candidate_contours),
+                proposal_mask,
+                max_candidates=contour_limit,
             )
-            geometry_checked = True
-            if quick_candidate is not None:
-                best_candidate = quick_candidate
-
-            if best_candidate is None or best_candidate["confidence"] < max(confidence_threshold, 54.0):
-                quick_fallback = self._fallback_color_shape_candidate(
-                    frame_small,
-                    gray,
-                    reference,
-                    candidate_mask,
-                    max_candidates=3,
-                )
-                if quick_fallback is not None and (
-                    best_candidate is None or quick_fallback["confidence"] > best_candidate["confidence"]
-                ):
-                    best_candidate = quick_fallback
+        )
+        candidates.extend(
+            self._fallback_color_shape_candidates(
+                frame_small,
+                gray,
+                reference,
+                proposal_mask,
+                max_candidates=contour_limit,
+            )
+        )
 
         allow_feature_search = True
         feature_view_limit = self._max_feature_views
         min_keypoints = 22
-        search_mask = self._feature_search_mask(candidate_mask, frame_small.shape, focus_bbox=focus_bbox)
+        search_mask = self._feature_search_mask(proposal_mask, frame_small.shape, focus_bbox=focus_bbox)
 
         if focus_bbox is not None:
             feature_view_limit = self._tracked_feature_views
             min_keypoints = 14
             allow_feature_search = (
-                best_candidate is None
-                or best_candidate["confidence"] < max(self._fast_track_confidence, confidence_threshold - 4.0)
+                not candidates
+                or max(candidate["confidence"] for candidate in candidates) < max(self._fast_track_confidence, confidence_threshold - 4.0)
                 or self._tracking_misses > 0
                 or self._frame_index % self._tracked_refresh_interval == 0
             )
@@ -152,71 +143,131 @@ class PartDetector:
             if allow_feature_search:
                 search_mask = None
 
-        if allow_feature_search and (best_candidate is None or best_candidate["confidence"] < max(42.0, confidence_threshold - 6.0)):
-            feature_candidate = self._detect_feature_candidate(
-                frame_bgr=frame_small,
-                frame_gray=gray,
-                reference=reference,
-                search_mask=search_mask,
-                min_keypoints=min_keypoints,
-                view_limit=feature_view_limit,
-            )
-            if feature_candidate is not None and (
-                best_candidate is None or feature_candidate["confidence"] > best_candidate["confidence"]
-            ):
-                best_candidate = feature_candidate
-
-        needs_geometry_pass = (
-            not geometry_checked
-            and (
-                best_candidate is None
-                or best_candidate["confidence"] < max(confidence_threshold + 2.0, 58.0)
-                or focus_bbox is None
-            )
-        )
-
-        if needs_geometry_pass:
-            contour_limit = self._tracked_candidate_contours if focus_bbox is not None else self._max_candidate_contours
-            proposal_candidate = self._proposal_from_candidates(
-                frame_small,
-                gray,
-                reference,
-                candidate_mask,
-                max_candidates=contour_limit,
-            )
-            if proposal_candidate is not None and (
-                best_candidate is None or proposal_candidate["confidence"] > best_candidate["confidence"]
-            ):
-                best_candidate = proposal_candidate
-
-            if best_candidate is None or best_candidate["confidence"] < max(confidence_threshold, 52.0):
-                fallback_candidate = self._fallback_color_shape_candidate(
-                    frame_small,
-                    gray,
-                    reference,
-                    candidate_mask,
-                    max_candidates=contour_limit,
+        if allow_feature_search:
+            candidates.extend(
+                self._feature_candidates(
+                    frame_bgr=frame_small,
+                    frame_gray=gray,
+                    reference=reference,
+                    search_mask=search_mask,
+                    min_keypoints=min_keypoints,
+                    view_limit=feature_view_limit,
+                    max_candidates=3,
                 )
-                if fallback_candidate is not None and (
-                    best_candidate is None or fallback_candidate["confidence"] > best_candidate["confidence"]
-                ):
-                    best_candidate = fallback_candidate
+            )
 
-        if best_candidate is None or best_candidate["confidence"] < confidence_threshold:
+        selected = self._select_candidates(candidates, confidence_threshold)
+        if not selected:
             self._register_miss(reference["name"])
-            return None
+            return []
 
-        self._register_success(reference["name"], best_candidate["bbox"], frame_small.shape)
-        polygon_full = best_candidate["polygon"] / scale
-        bbox_full = [int(round(coord / scale)) for coord in best_candidate["bbox"]]
+        self._register_success(reference["name"], selected[0]["bbox"], frame_small.shape)
+        return [self._candidate_to_result(reference["name"], candidate, scale) for candidate in selected]
 
+    def detect(
+        self,
+        frame_bgr: np.ndarray,
+        reference: dict | None,
+        confidence_threshold: float = 50.0,
+    ) -> DetectionResult | None:
+        """Найти наиболее уверенную детекцию активного эталона на кадре."""
+        detections = self.detect_all(frame_bgr, reference, confidence_threshold)
+        return detections[0] if detections else None
+
+    def _feature_candidates(
+        self,
+        frame_bgr: np.ndarray,
+        frame_gray: np.ndarray,
+        reference: dict,
+        search_mask: np.ndarray | None,
+        min_keypoints: int,
+        view_limit: int,
+        max_candidates: int,
+    ) -> list[dict]:
+        """Найти несколько кандидатов по локальным признакам с подавлением уже найденных областей."""
+        if max_candidates <= 0:
+            return []
+
+        working_mask = (
+            np.full(frame_gray.shape, 255, dtype=np.uint8)
+            if search_mask is None
+            else search_mask.copy()
+        )
+        candidates: list[dict] = []
+
+        for _ in range(max_candidates):
+            feature_candidate = self._detect_feature_candidate(
+                frame_bgr=frame_bgr,
+                frame_gray=frame_gray,
+                reference=reference,
+                search_mask=working_mask,
+                min_keypoints=min_keypoints,
+                view_limit=view_limit,
+            )
+            if feature_candidate is None:
+                break
+
+            candidates.append(feature_candidate)
+            self._suppress_bbox(working_mask, feature_candidate["bbox"], margin=24)
+            if cv2.countNonZero(working_mask) < self._min_proposal_pixels:
+                break
+
+        return candidates
+
+    def _select_candidates(self, candidates: list[dict], confidence_threshold: float) -> list[dict]:
+        """Отфильтровать слабые и дублирующиеся кандидаты."""
+        filtered = [
+            candidate
+            for candidate in sorted(candidates, key=lambda item: item["confidence"], reverse=True)
+            if candidate["confidence"] >= confidence_threshold
+        ]
+        selected: list[dict] = []
+
+        for candidate in filtered:
+            if any(self._bbox_iou(candidate["bbox"], other["bbox"]) >= 0.35 for other in selected):
+                continue
+            selected.append(candidate)
+
+        return selected
+
+    def _candidate_to_result(self, reference_name: str, candidate: dict, scale: float) -> DetectionResult:
+        """Преобразовать внутреннего кандидата в публичный объект результата."""
+        polygon_full = candidate["polygon"] / scale
+        bbox_full = [int(round(coord / scale)) for coord in candidate["bbox"]]
         return DetectionResult(
-            name=reference["name"],
-            confidence=best_candidate["confidence"],
+            name=reference_name,
+            confidence=candidate["confidence"],
             bbox=bbox_full,
             polygon=polygon_full.astype(np.int32),
-            debug=best_candidate["debug"],
+            debug=candidate["debug"],
         )
+
+    def _suppress_bbox(self, mask: np.ndarray, bbox: list[int], margin: int) -> None:
+        """Занулить область уже найденной детекции в рабочей маске поиска."""
+        x1, y1, x2, y2 = self._expand_bbox(bbox, mask.shape, margin=margin)
+        mask[y1:y2, x1:x2] = 0
+
+    @staticmethod
+    def _bbox_iou(first: list[int], second: list[int]) -> float:
+        """Вычислить IoU между двумя ограничивающими прямоугольниками."""
+        ax1, ay1, ax2, ay2 = first
+        bx1, by1, bx2, by2 = second
+
+        inter_x1 = max(ax1, bx1)
+        inter_y1 = max(ay1, by1)
+        inter_x2 = min(ax2, bx2)
+        inter_y2 = min(ay2, by2)
+
+        inter_w = max(0, inter_x2 - inter_x1)
+        inter_h = max(0, inter_y2 - inter_y1)
+        inter_area = inter_w * inter_h
+        if inter_area <= 0:
+            return 0.0
+
+        area_a = max(1, (ax2 - ax1) * (ay2 - ay1))
+        area_b = max(1, (bx2 - bx1) * (by2 - by1))
+        union = area_a + area_b - inter_area
+        return inter_area / float(max(1, union))
 
     def _detect_feature_candidate(
         self,
@@ -353,21 +404,29 @@ class PartDetector:
         max_candidates: int | None = None,
     ) -> dict | None:
         """Оценить предложения контуров, извлечённые из маски кандидатов."""
+        candidates = self._proposal_candidates(frame_bgr, frame_gray, reference, proposal_mask, max_candidates=max_candidates)
+        return candidates[0] if candidates else None
+
+    def _proposal_candidates(
+        self,
+        frame_bgr: np.ndarray,
+        frame_gray: np.ndarray,
+        reference: dict,
+        proposal_mask: np.ndarray | None,
+        max_candidates: int | None = None,
+    ) -> list[dict]:
+        """Оценить все контуры-кандидаты, найденные в маске предложений."""
         if proposal_mask is None or cv2.countNonZero(proposal_mask) < 160:
-            return None
+            return []
 
         contours = self._extract_candidate_contours(proposal_mask, reference, max_candidates=max_candidates)
-        if not contours:
-            return None
-
-        best_candidate = None
-        for contour in contours:
-            candidate = self._evaluate_contour_candidate(frame_bgr, frame_gray, reference, contour)
-            if candidate is None:
-                continue
-            if best_candidate is None or candidate["confidence"] > best_candidate["confidence"]:
-                best_candidate = candidate
-        return best_candidate
+        candidates = [
+            candidate
+            for contour in contours
+            if (candidate := self._evaluate_contour_candidate(frame_bgr, frame_gray, reference, contour)) is not None
+        ]
+        candidates.sort(key=lambda item: item["confidence"], reverse=True)
+        return candidates
 
     def _evaluate_contour_candidate(
         self,
@@ -467,6 +526,24 @@ class PartDetector:
         max_candidates: int | None = None,
     ) -> dict | None:
         """Использовать резервную оценку контура по цвету и форме."""
+        candidates = self._fallback_color_shape_candidates(
+            frame_bgr,
+            frame_gray,
+            reference,
+            base_mask,
+            max_candidates,
+        )
+        return candidates[0] if candidates else None
+
+    def _fallback_color_shape_candidates(
+        self,
+        frame_bgr: np.ndarray,
+        frame_gray: np.ndarray,
+        reference: dict,
+        base_mask: np.ndarray | None = None,
+        max_candidates: int | None = None,
+    ) -> list[dict]:
+        """Оценить все резервные кандидаты по цвету и форме."""
         if base_mask is None or cv2.countNonZero(base_mask) == 0:
             hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
             mask = self._reference_color_mask(hsv, reference)
@@ -481,7 +558,7 @@ class PartDetector:
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
         if max_candidates is not None:
             contours = contours[:max_candidates]
-        best_candidate = None
+        candidates: list[dict] = []
 
         for contour in contours:
             area = float(cv2.contourArea(contour))
@@ -526,10 +603,10 @@ class PartDetector:
                     "mask_score": round(mask_score, 3),
                 },
             }
-            if best_candidate is None or candidate["confidence"] > best_candidate["confidence"]:
-                best_candidate = candidate
+            candidates.append(candidate)
 
-        return best_candidate
+        candidates.sort(key=lambda item: item["confidence"], reverse=True)
+        return candidates
 
     def _tracked_fast_candidate(
         self,

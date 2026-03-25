@@ -75,6 +75,7 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
         if not name:
             QMessageBox.warning(self, "Ошибка", "Введите название детали")
             return
+        self.close()
 
         frame = self.staticframe.copy_frame()
         if frame is None:

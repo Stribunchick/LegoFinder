@@ -32,9 +32,9 @@ class PartMatchingPipeline:
         self.current_reference = None
         self.detector.reset_tracking()
 
-    def process_frame(self, frame_bgr, confidence_threshold: float = 50.0) -> DetectionResult | None:
-        """Запустить детекцию активного эталона на кадре."""
-        return self.detector.detect(
+    def process_frame(self, frame_bgr, confidence_threshold: float = 50.0) -> list[DetectionResult]:
+        """Запустить детекцию всех объектов активного эталона на кадре."""
+        return self.detector.detect_all(
             frame_bgr=frame_bgr,
             reference=self.current_reference,
             confidence_threshold=confidence_threshold,
