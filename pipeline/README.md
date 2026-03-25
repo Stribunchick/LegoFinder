@@ -28,9 +28,9 @@
 ```python
 import cv2
 
-from robust_pipeline import RobustPartMatchingPipeline
+from pipeline import PartMatchingPipeline
 
-pipeline = RobustPartMatchingPipeline(storage_dir="data/robust_templates")
+pipeline = PartMatchingPipeline(storage_dir="data/templates")
 
 reference = cv2.imread("reference.jpg")
 pipeline.add_reference("red_brick", reference)

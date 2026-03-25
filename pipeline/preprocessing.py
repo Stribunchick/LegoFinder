@@ -163,7 +163,7 @@ def generate_affine_views(
     """Сгенерировать синтетические аффинные варианты эталонного объекта."""
     h, w = image_bgr.shape[:2]
     center = (w / 2.0, h / 2.0)
-    bg_color = _estimate_border_color(image_bgr)
+    bg_color = estimate_border_color(image_bgr)
     views: list[AffineView] = []
     seen: set[tuple[int, int]] = set()
 
@@ -225,7 +225,31 @@ def warp_binary_mask(mask: np.ndarray, homography: np.ndarray, frame_shape: tupl
     )
 
 
-def _estimate_border_color(image_bgr: np.ndarray) -> tuple[int, int, int]:
+def gradient_magnitude(gray: np.ndarray) -> np.ndarray:
+    """Вычислить модуль градиента для изображения в оттенках серого."""
+    gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    return cv2.magnitude(gx, gy)
+
+
+def order_points(points: np.ndarray) -> np.ndarray:
+    """Упорядочить четыре точки прямоугольника по часовой стрелке."""
+    points = np.asarray(points, dtype=np.float32)
+    if points.shape != (4, 2):
+        raise ValueError("Expected four 2D points")
+
+    sums = points.sum(axis=1)
+    diffs = np.diff(points, axis=1).ravel()
+
+    ordered = np.zeros((4, 2), dtype=np.float32)
+    ordered[0] = points[np.argmin(sums)]
+    ordered[2] = points[np.argmax(sums)]
+    ordered[1] = points[np.argmin(diffs)]
+    ordered[3] = points[np.argmax(diffs)]
+    return ordered
+
+
+def estimate_border_color(image_bgr: np.ndarray) -> tuple[int, int, int]:
     """Оценить цвет фона по пикселям на границе изображения."""
     h, w = image_bgr.shape[:2]
     border = np.concatenate(

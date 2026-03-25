@@ -31,7 +31,7 @@ class AppController(QObject):
     set_source_requested = Signal(object)
     switch_reference_requested = Signal(str)
 
-    def __init__(self, main_window, folder="./data/robust_templates"):
+    def __init__(self, main_window, folder="./data/templates"):
         """Создать рабочие объекты и связать сигналы приложения."""
         super().__init__()
         self.folder = folder

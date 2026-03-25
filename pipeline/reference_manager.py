@@ -13,9 +13,12 @@ from pipeline.preprocessing import (
     compute_lab_stats,
     compute_masked_hs_hist,
     crop_to_mask,
+    estimate_border_color,
     extract_reference_mask,
     generate_affine_views,
+    gradient_magnitude,
     normalize_gray,
+    order_points,
     resize_reference,
 )
 
@@ -23,7 +26,7 @@ from pipeline.preprocessing import (
 class ReferenceManager:
     schema_version = 2
 
-    def __init__(self, storage_dir: str = "data/robust_templates", max_reference_side: int = 960):
+    def __init__(self, storage_dir: str = "data/templates", max_reference_side: int = 960):
         """Подготовить хранилище эталонов и локальный экстрактор признаков."""
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
@@ -248,7 +251,7 @@ class ReferenceManager:
         base_points_list = data["base_points"]
         base_to_view = data["base_to_view"].astype(np.float32)
 
-        view_bg_color = self._estimate_background(image)
+        view_bg_color = estimate_border_color(image)
         views: list[dict] = []
 
         for index in range(len(base_to_view)):
@@ -297,7 +300,7 @@ class ReferenceManager:
                     "mask": view_mask,
                     "edges": view_edges,
                     "gray": view_gray,
-                    "grad": self._gradient_magnitude(view_gray),
+                    "grad": gradient_magnitude(view_gray),
                     "width": int(image.shape[1]),
                     "height": int(image.shape[0]),
                     "contour": contour,
@@ -376,7 +379,7 @@ class ReferenceManager:
             return np.zeros((4, 2), dtype=np.float32)
 
         points = cv2.boxPoints(cv2.minAreaRect(contour)).astype(np.float32)
-        return ReferenceManager._order_points(points)
+        return order_points(points)
 
     @staticmethod
     def _hsv_stats(image_bgr: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -386,46 +389,6 @@ class ReferenceManager:
         if pixels.size == 0:
             return np.zeros(3, dtype=np.float32), np.ones(3, dtype=np.float32)
         return pixels.mean(axis=0).astype(np.float32), pixels.std(axis=0).astype(np.float32)
-
-    @staticmethod
-    def _gradient_magnitude(gray: np.ndarray) -> np.ndarray:
-        """Вычислить изображение модуля градиента."""
-        gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
-        gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
-        return cv2.magnitude(gx, gy)
-
-    @staticmethod
-    def _order_points(points: np.ndarray) -> np.ndarray:
-        """Упорядочить точки прямоугольника как левый верхний, правый верхний, правый нижний, левый нижний."""
-        points = np.asarray(points, dtype=np.float32)
-        if points.shape != (4, 2):
-            raise ValueError("Expected four 2D points")
-
-        sums = points.sum(axis=1)
-        diffs = np.diff(points, axis=1).ravel()
-
-        ordered = np.zeros((4, 2), dtype=np.float32)
-        ordered[0] = points[np.argmin(sums)]
-        ordered[2] = points[np.argmax(sums)]
-        ordered[1] = points[np.argmin(diffs)]
-        ordered[3] = points[np.argmax(diffs)]
-        return ordered
-
-    @staticmethod
-    def _estimate_background(image_bgr: np.ndarray) -> tuple[int, int, int]:
-        """Оценить цвет фона по пикселям на границе изображения."""
-        h, w = image_bgr.shape[:2]
-        border = np.concatenate(
-            [
-                image_bgr[0, :, :],
-                image_bgr[h - 1, :, :],
-                image_bgr[:, 0, :],
-                image_bgr[:, w - 1, :],
-            ],
-            axis=0,
-        )
-        color = np.median(border, axis=0).astype(np.uint8)
-        return int(color[0]), int(color[1]), int(color[2])
 
     @staticmethod
     def _safe_name(name: str) -> str:

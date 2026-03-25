@@ -27,7 +27,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Инициализировать главное окно и связанные компоненты обработки."""
         super().__init__()
         self.setupUi(self)
-        self.folder = os.path.join(os.getcwd(), "data", "robust_templates")
+        self.folder = os.path.join(os.getcwd(), "data", "templates")
         self.select_part_combo_box = FileComboBox(self.folder)
         self.horizontalLayout.addWidget(self.select_part_combo_box)
         self.select_part_combo_box.refresh_items()

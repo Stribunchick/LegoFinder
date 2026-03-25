@@ -15,7 +15,7 @@ class AddPartWindow(QWidget, Ui_AddPartWindow):
     videoframe: FrameDisplay
     staticframe: FrameDisplay
 
-    def __init__(self, parent, reference_folder="./data/robust_templates"):
+    def __init__(self, parent, reference_folder="./data/templates"):
         """Инициализировать окно для захвата и сохранения эталонов."""
         super().__init__()
         self.setupUi(self)

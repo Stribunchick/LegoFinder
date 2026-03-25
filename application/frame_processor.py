@@ -11,7 +11,7 @@ class FrameProcessor(QObject):
 
     _running: bool
 
-    def __init__(self, folder="./data/robust_templates"):
+    def __init__(self, folder="./data/templates"):
         """Инициализировать пайплайн детекции и таймер объединения кадров."""
         super().__init__()
         self.folder = folder

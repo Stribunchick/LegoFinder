@@ -6,7 +6,7 @@ from pipeline.reference_manager import ReferenceManager
 
 
 class PartMatchingPipeline:
-    def __init__(self, storage_dir: str = "data/robust_templates"):
+    def __init__(self, storage_dir: str = "data/templates"):
         """Инициализировать хранилище эталонов и экземпляр детектора."""
         self.reference_manager = ReferenceManager(storage_dir=storage_dir)
         self.detector = PartDetector()

@@ -9,9 +9,10 @@ import numpy as np
 
 from pipeline.preprocessing import (
     apply_rootsift,
-    compute_lab_stats,
     compute_masked_hs_hist,
+    gradient_magnitude,
     normalize_gray,
+    order_points,
     resize_if_needed,
     warp_binary_mask,
 )
@@ -922,7 +923,7 @@ class PartDetector:
             flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_REFLECT,
         )
-        rectified_grad = self._gradient_magnitude(rectified_gray)
+        rectified_grad = gradient_magnitude(rectified_gray)
         mask = view["mask"] > 0
         if int(np.count_nonzero(mask)) < 250:
             return 0.0
@@ -994,7 +995,7 @@ class PartDetector:
             return None
 
         points = cv2.boxPoints(cv2.minAreaRect(contour)).astype(np.float32)
-        return self._order_points(points)
+        return order_points(points)
 
     def _reference_color_mask(self, frame_hsv: np.ndarray, reference: dict) -> np.ndarray:
         """Построить грубую маску в HSV по цветовой статистике эталона."""
@@ -1074,27 +1075,3 @@ class PartDetector:
         corr = float(np.mean((values_a / std_a) * (values_b / std_b)))
         corr = max(-1.0, min(1.0, corr))
         return max(0.0, min(1.0, (corr + 1.0) / 2.0))
-
-    @staticmethod
-    def _gradient_magnitude(gray: np.ndarray) -> np.ndarray:
-        """Вычислить модуль градиента для изображения в оттенках серого."""
-        gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
-        gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
-        return cv2.magnitude(gx, gy)
-
-    @staticmethod
-    def _order_points(points: np.ndarray) -> np.ndarray:
-        """Упорядочить точки прямоугольника по часовой стрелке от левого верхнего угла."""
-        points = np.asarray(points, dtype=np.float32)
-        if points.shape != (4, 2):
-            raise ValueError("Expected four 2D points")
-
-        sums = points.sum(axis=1)
-        diffs = np.diff(points, axis=1).ravel()
-
-        ordered = np.zeros((4, 2), dtype=np.float32)
-        ordered[0] = points[np.argmin(sums)]
-        ordered[2] = points[np.argmax(sums)]
-        ordered[1] = points[np.argmin(diffs)]
-        ordered[3] = points[np.argmax(diffs)]
-        return ordered
