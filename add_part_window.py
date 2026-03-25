@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from application.frame_display import FrameDisplay
 from gui.add_part_window_ui import Ui_AddPartWindow
-from robust_pipeline import RobustReferenceManager
+from pipeline import RobustReferenceManager
 
 
 class AddPartWindow(QWidget, Ui_AddPartWindow):

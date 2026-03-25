@@ -219,6 +219,6 @@ resnet_pipeline/
 .new_pipeline
 /new_pipeline/
 .cv_pipeline
-.cv_pipeline/
+/cv_pipeline/
 data
 /data/

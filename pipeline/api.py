@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from robust_pipeline.detector import DetectionResult, RobustPartDetector
-from robust_pipeline.reference_manager import RobustReferenceManager
+from pipeline.detector import DetectionResult, RobustPartDetector
+from pipeline.reference_manager import RobustReferenceManager
 
 
 class RobustPartMatchingPipeline:

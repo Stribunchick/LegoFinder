@@ -35,7 +35,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.frame.layout().addWidget(self.image_widget)
         self.app_controller = AppController(self, folder=self.folder)
         self.connect_signals()
-        self.webcamsrc = 1
+        self.webcamsrc = 0
         self.conf_thres_slider.setRange(0, 100)
         self.conf_thres_slider.setValue(50)
 

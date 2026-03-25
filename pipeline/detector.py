@@ -7,7 +7,7 @@ import math
 import cv2
 import numpy as np
 
-from robust_pipeline.preprocessing import (
+from pipeline.preprocessing import (
     apply_rootsift,
     compute_lab_stats,
     compute_masked_hs_hist,

@@ -7,7 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from robust_pipeline.preprocessing import (
+from pipeline.preprocessing import (
     apply_rootsift,
     build_edge_map,
     compute_lab_stats,

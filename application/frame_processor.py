@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
 
-from robust_pipeline import RobustPartMatchingPipeline, draw_detection
+from pipeline import RobustPartMatchingPipeline, draw_detection
 
 
 class FrameProcessor(QObject):
