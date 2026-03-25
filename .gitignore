@@ -214,3 +214,11 @@ tests1/
 .vscode/
 .resnet_pipeline
 resnet_pipeline/
+.dinov2_pipeline
+/dinov2_pipeline/
+.new_pipeline
+/new_pipeline/
+.cv_pipeline
+.cv_pipeline/
+data
+/data/

@@ -19,7 +19,7 @@ class Comparator:
     def compare(self, query):
         kp, query_ds = self.sift.detectAndCompute(query, None)
         cv2.drawKeypoints(query, kp, query, (51, 163, 236), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        cv2.imshow("test", query)
+        # cv2.imshow("test", query)
         matches = self.matcher.knnMatch(query_ds, self.desriptor, k=2)
         
         good_matches = []
@@ -32,7 +32,7 @@ class Comparator:
         if num_good_matches >= self.MIN_NUM_GOOD_MATCHES:
             # if num_good_matches > greatest_num_good_matches:
             #     greatest_num_good_matches = num_good_matches
-            print("GOOD")
+            # print("GOOD")
             return True
         return False
 

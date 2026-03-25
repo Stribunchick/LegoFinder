@@ -22,7 +22,7 @@ class ColorMatcher:
         contours, _ = cv2.findContours(mask_comb, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         min_area = 250
         contour_filter = [c for c in contours if cv2.contourArea(c) > min_area]
-
+        # print(contour_filter)
         return contour_filter
     
     def set_reference(self, color_bounds):

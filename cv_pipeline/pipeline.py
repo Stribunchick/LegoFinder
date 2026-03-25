@@ -12,8 +12,11 @@ class Pipeline:
           self.det_name = ''
 
     def process(self, frame):
+        img = frame.copy()
+        cv2.resize(img, (640, 640))
         img = frame // 6 * 6 + 6 // 2
-        contours = self.cmatcher.find_color_matches(frame)
+        
+        contours = self.cmatcher.find_color_matches(img)
         if not contours:
             return frame
         for cnt in contours:
@@ -26,7 +29,7 @@ class Pipeline:
                 if match:
                     cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
                     cv2.putText(frame, f"{self.det_name}", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                    print("[SIFT] MATCH")
+                    # print("[FT] MATCH")
                 # print("[COLOR] MATCH")
         return frame
 

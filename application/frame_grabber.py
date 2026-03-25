@@ -1,43 +1,53 @@
 from PySide6.QtCore import QTimer, Signal, QObject, Slot
-import cv2
-import numpy as np
 from application.source import Source
 
+
 class FrameGrabber(QObject):
-    started: Signal
-    stopped: Signal
     frame_ready = Signal(object)
-    _running: bool
-    
+
     def __init__(self):
+        """Подготовить периодический захват кадров от текущего источника."""
         super().__init__()
-        self.started = Signal()
-        self.stopped = Signal()
         self.source = None
-        self._running: bool = False
-        
-        self._timer = QTimer()
+        self._timer = QTimer(self)
         self._timer.timeout.connect(self.acquire)
-    
+
+    @Slot(object)
     def set_source(self, source: Source):
-        if isinstance(source, Source):
-            print("True")
+        """Заменить активный источник и при необходимости открыть его заново."""
         if self.source is not None:
             self.source.close()
         self.source = source
-        self.source.open()
-    
-    def start(self):
-        self._timer.start(30)
-        
+        if self.source is not None:
+            self.source.open()
 
+    @Slot()
+    def start(self):
+        """Запустить периодический захват кадров."""
+        if self.source is None or self._timer.isActive():
+            return
+        self._timer.start(50)
+
+    @Slot()
     def stop(self):
-        self._timer.stop()
-    
+        """Остановить периодический захват кадров."""
+        if self._timer.isActive():
+            self._timer.stop()
+
+    @Slot()
+    def close_source(self):
+        """Остановить захват и закрыть текущий источник."""
+        self.stop()
+        if self.source is not None:
+            self.source.close()
+            self.source = None
+
     @Slot()
     def acquire(self):
-        # print("FRAME_GRABBER SEND FRAME")
-        # self.frame_ready.emit(np.random.randint(0, 255, (480, 640), dtype=np.uint8))
+        """Считать следующий кадр из источника и отправить сигнал."""
+        if self.source is None:
+            return
+
         frame = self.source.read()
         if frame is None:
             return

@@ -1,0 +1,37 @@
+from __future__ import annotations
+
+from robust_pipeline.detector import DetectionResult, RobustPartDetector
+from robust_pipeline.reference_manager import RobustReferenceManager
+
+
+class RobustPartMatchingPipeline:
+    def __init__(self, storage_dir: str = "data/robust_templates"):
+        """Инициализировать хранилище эталонов и экземпляр детектора."""
+        self.reference_manager = RobustReferenceManager(storage_dir=storage_dir)
+        self.detector = RobustPartDetector()
+        self.current_reference = None
+
+    def add_reference(self, name, image_bgr):
+        """Сохранить новое эталонное изображение с указанным именем."""
+        return self.reference_manager.add_reference(name, image_bgr)
+
+    def list_references(self):
+        """Вернуть список всех доступных эталонов."""
+        return self.reference_manager.list_references()
+
+    def load_reference(self, name: str):
+        """Загрузить и сохранить в памяти эталон для последующей детекции."""
+        self.current_reference = self.reference_manager.load_reference(name)
+        return self.current_reference
+
+    def clear_reference(self):
+        """Сбросить текущий выбранный эталон."""
+        self.current_reference = None
+
+    def process_frame(self, frame_bgr, confidence_threshold: float = 50.0) -> DetectionResult | None:
+        """Запустить детекцию активного эталона на кадре."""
+        return self.detector.detect(
+            frame_bgr=frame_bgr,
+            reference=self.current_reference,
+            confidence_threshold=confidence_threshold,
+        )

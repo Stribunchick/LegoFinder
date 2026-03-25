@@ -10,6 +10,8 @@ class DescriptorCreator:
         self.feature_detector = cv2.SIFT.create()
 
     def create_part_description(self, frame, name):
+        img = frame.copy()
+        cv2.resize(img, (480, 480))
         mask = self.highlight_detail(frame)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 

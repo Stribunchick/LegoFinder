@@ -1,0 +1,1066 @@
+Вот мой код сейчас. Что исправить?
+import json
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+from new_pipeline.preprocessing import extract_object_mask, crop_by_mask, compute_hsv_hist, safe_gray
+
+
+class TemplateManager:
+    def __init__(self, storage_dir="data/templates"):
+        self.storage_dir = Path(storage_dir)
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+
+        self.orb = cv2.ORB_create(
+            nfeatures=1800,
+            scaleFactor=1.2,
+            nlevels=8,
+            edgeThreshold=15,
+            patchSize=31,
+            fastThreshold=10
+        )
+
+    def add_template(self, name, image_bgr):
+        if image_bgr is None:
+            raise ValueError("Пустое изображение")
+
+        mask = extract_object_mask(image_bgr)
+        if mask is None:
+            raise ValueError(
+                "Не удалось выделить объект. Убедись, что деталь снята на однотонном фоне."
+            )
+
+        crop, crop_mask, _ = crop_by_mask(image_bgr, mask, padding=8)
+        if crop is None:
+            raise ValueError("Не удалось вырезать объект")
+
+        gray = safe_gray(crop)
+        keypoints, descriptors = self.orb.detectAndCompute(gray, crop_mask)
+
+        if descriptors is None or len(keypoints) < 15:
+            raise ValueError(
+                "Слишком мало признаков у детали. Попробуй другое фото, лучше свет или другой ракурс."
+            )
+
+        hist = compute_hsv_hist(crop, crop_mask)
+
+        item_dir = self.storage_dir / self._safe_name(name)
+        item_dir.mkdir(parents=True, exist_ok=True)
+
+        cv2.imwrite(str(item_dir / "template.png"), crop)
+        cv2.imwrite(str(item_dir / "mask.png"), crop_mask)
+        np.save(str(item_dir / "descriptors.npy"), descriptors)
+        np.save(str(item_dir / "hist.npy"), hist)
+
+        kp_data = []
+        for kp in keypoints:
+            kp_data.append({
+                "x": float(kp.pt[0]),
+                "y": float(kp.pt[1]),
+                "size": float(kp.size),
+                "angle": float(kp.angle),
+                "response": float(kp.response),
+                "octave": int(kp.octave),
+                "class_id": int(kp.class_id),
+            })
+
+        meta = {
+            "name": name,
+            "width": int(crop.shape[1]),
+            "height": int(crop.shape[0]),
+            "keypoints": kp_data,
+        }
+
+        with open(item_dir / "meta.json", "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        return str(item_dir)
+
+    def list_templates(self):
+        result = []
+        for item in self.storage_dir.iterdir():
+            if not item.is_dir():
+                continue
+            meta_path = item / "meta.json"
+            if not meta_path.exists():
+                continue
+
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+                result.append(meta["name"])
+            except Exception:
+                continue
+
+        return sorted(result)
+
+    def load_template(self, name):
+        item_dir = self.storage_dir / self._safe_name(name)
+        meta_path = item_dir / "meta.json"
+
+        if not meta_path.exists():
+            raise FileNotFoundError(f"Шаблон '{name}' не найден")
+
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+
+        image = cv2.imread(str(item_dir / "template.png"))
+        mask = cv2.imread(str(item_dir / "mask.png"), cv2.IMREAD_GRAYSCALE)
+        descriptors = np.load(str(item_dir / "descriptors.npy"))
+        hist = np.load(str(item_dir / "hist.npy"))
+
+        keypoints = []
+        for k in meta["keypoints"]:
+            kp = cv2.KeyPoint(
+                x=float(k["x"]),
+                y=float(k["y"]),
+                size=float(k["size"]),
+                angle=float(k["angle"]),
+                response=float(k["response"]),
+                octave=int(k["octave"]),
+                class_id=int(k["class_id"]),
+            )
+            keypoints.append(kp)
+
+        return {
+            "name": meta["name"],
+            "image": image,
+            "mask": mask,
+            "descriptors": descriptors,
+            "hist": hist,
+            "keypoints": keypoints,
+            "width": int(meta["width"]),
+            "height": int(meta["height"]),
+        }
+
+    def delete_template(self, name):
+        item_dir = self.storage_dir / self._safe_name(name)
+        if not item_dir.exists():
+            return False
+
+        for file in item_dir.iterdir():
+            file.unlink()
+        item_dir.rmdir()
+        return True
+
+    @staticmethod
+    def _safe_name(name):
+        clean = "".join(ch if ch.isalnum() or ch in ("_", "-", " ") else "_" for ch in name)
+        return clean.strip().replace(" ", "_")
+from pathlib import Path
+from typing import override
+import numpy as np
+import sys
+import os
+
+from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow
+from PySide6.QtCore import Slot
+from gui.ui_mainwindow_ui import Ui_MainWindow
+
+from add_part_window import AddPartWindow
+
+from application.appcontroller import AppController
+
+from application.frame_display import FrameDisplay
+
+from application.sources.videofile_source import VideoFileSource
+from application.sources.webcam_source import CameraSource 
+from application.sources.imagefile_source import ImageFileSource
+from application.des_combo_box import FileComboBox
+
+class MainWindow(QMainWindow, Ui_MainWindow):
+    add_part_window: AddPartWindow
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.folder = os.path.join(os.getcwd(),"data")
+        self.select_part_combo_box = FileComboBox(self.folder)
+        self.horizontalLayout.addWidget(self.select_part_combo_box)
+        self.image_widget = FrameDisplay()
+        self.frame.layout().addWidget(self.image_widget)
+        self.app_controller = AppController(self)
+        self.connect_signals()
+        self.webcamsrc = 1
+    
+    def connect_signals(self):
+        self.start_stop_acq_button.toggled.connect(self._on_start_stop_toggled)
+        self.add_part_button.clicked.connect(self._on_add_part_clicked)
+        self.load_img_src_button.clicked.connect(self._on_load_image_button_clicked)
+        self.conf_thres_slider.valueChanged.connect(self._on_conf_thres_slider_changed)
+        self.select_part_combo_box.currentTextChanged.connect(self.select_part_from_list)
+
+    @Slot(bool)
+    def _on_start_stop_toggled(self, checked: bool):
+        # print(f"STATE START/STOP BUTTON INIT {checked}")
+        if not isinstance(self.app_controller.frame_grabber.source, CameraSource):
+            self.app_controller.frame_grabber.set_source(CameraSource(self.webcamsrc))
+        if checked:
+            self.app_controller.start_pipeline()
+        else:
+            self.app_controller.stop_pipeline()
+
+    @Slot()
+    def _on_load_image_button_clicked(self):
+        # self.start_stop_acq_button.setChecked(False)
+        self.app_controller.stop_pipeline()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open media",
+            "",
+            "Media Files (*.mp4 *.avi *.mov *.mkv *.jpg *.png *.bmp)"
+        )
+        if not file_path:
+            self.start_stop_acq_button.setChecked(True)
+            return
+        
+        ext = Path(file_path).suffix.lower()
+
+        if ext in [".mp4", ".avi", ".mov", ".mkv"]:
+            source = VideoFileSource(file_path)
+
+        elif ext in [".jpg", ".jpeg", ".png", ".bmp"]:
+            source = ImageFileSource(file_path)
+        
+        else:
+            return
+        self.app_controller.frame_grabber.set_source(source)
+
+        if not self.start_stop_acq_button.isChecked():
+            self.start_stop_acq_button.setChecked(True)
+        self.app_controller.start_pipeline()
+
+    #On button click -> stop camera acquisition, open window, switch frame_getter destination to app_window's videoframe
+    @Slot(int)
+    def _on_conf_thres_slider_changed(self, value):
+        self.app_controller.update_thres(value)
+
+    @Slot()
+    def _on_add_part_clicked(self):
+        self.add_part_window = AddPartWindow(self)
+        self.app_controller.switch_to_add_part(self.add_part_window.videoframe)
+        self.app_controller.frame_grabber.set_source(CameraSource(self.webcamsrc))
+        self.start_stop_acq_button.setChecked(True)
+        self.add_part_window.show()
+        
+    @Slot(object)
+    def _update_frame(self, frame: np.ndarray):
+        self.image_widget.update_frames(frame)
+
+    @Slot(str)
+    def select_part_from_list(self, det_name):
+        # Передать название файла в папке
+        self.app_controller.change_part(det_name)
+
+    @override
+    def closeEvent(self, event):
+        self.app_controller.thread_manager.shutdown()
+import cv2
+import numpy as np
+
+from new_pipeline.preprocessing import resize_keep_aspect, compute_hsv_hist, safe_gray
+
+
+def clamp01(value):
+    return max(0.0, min(1.0, float(value)))
+
+
+class LegoDetector:
+    def __init__(self):
+        self.orb = cv2.ORB_create(
+            nfeatures=2000,
+            scaleFactor=1.2,
+            nlevels=8,
+            edgeThreshold=15,
+            patchSize=31,
+            fastThreshold=10
+        )
+        self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        self.prev_bbox = None
+
+    def detect(self, frame_bgr, template, confidence_threshold=70):
+        """
+        Возвращает словарь с результатом или None.
+        confidence_threshold: 0..100
+        """
+        if frame_bgr is None or template is None:
+            return None
+
+        frame_small, scale = resize_keep_aspect(frame_bgr, max_side=960)
+        gray = safe_gray(frame_small)
+
+        kp_frame, des_frame = self.orb.detectAndCompute(gray, None)
+        if des_frame is None or len(kp_frame) < 20:
+            return None
+
+        kp_tpl = template["keypoints"]
+        des_tpl = template["descriptors"]
+
+        if des_tpl is None or len(kp_tpl) < 10:
+            return None
+
+        knn_matches = self.matcher.knnMatch(des_tpl, des_frame, k=2)
+
+        good_matches = []
+        for pair in knn_matches:
+            if len(pair) < 2:
+                continue
+            m, n = pair
+            if m.distance < 0.75 * n.distance:
+                good_matches.append(m)
+
+        if len(good_matches) < 12:
+            return None
+
+        src_pts = np.float32([kp_tpl[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp_frame[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+        H, inlier_mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        if H is None or inlier_mask is None:
+            return None
+
+        inliers = int(inlier_mask.sum())
+        inlier_ratio = inliers / max(1, len(good_matches))
+
+        if inliers < 8 or inlier_ratio < 0.35:
+            return None
+
+        tpl_h = template["height"]
+        tpl_w = template["width"]
+
+        corners = np.float32(
+            [[0, 0], [tpl_w, 0], [tpl_w, tpl_h], [0, tpl_h]]
+        ).reshape(-1, 1, 2)
+
+        projected = cv2.perspectiveTransform(corners, H)
+
+        if not self._is_valid_polygon(projected, frame_small.shape):
+            return None
+
+        x, y, w, h = cv2.boundingRect(projected.astype(np.int32))
+        x1 = max(0, x)
+        y1 = max(0, y)
+        x2 = min(frame_small.shape[1], x + w)
+        y2 = min(frame_small.shape[0], y + h)
+
+        if x2 <= x1 or y2 <= y1:
+            return None
+
+        roi = frame_small[y1:y2, x1:x2]
+        if roi.size == 0:
+            return None
+
+        roi_hist = compute_hsv_hist(roi)
+        color_score = self._hist_similarity(template["hist"], roi_hist)
+        geom_score = self._geometry_score(projected)
+        match_score = self._match_score(inliers, len(kp_tpl))
+        stability_score = self._stability_score((x1, y1, x2, y2))
+
+        confidence = (
+            0.35 * match_score +
+            0.30 * clamp01(inlier_ratio) +
+            0.15 * geom_score +
+            0.15 * color_score +
+            0.05 * stability_score
+        ) * 100.0
+
+        confidence = round(confidence, 1)
+
+        if confidence < float(confidence_threshold):
+            return None
+
+        self.prev_bbox = (x1, y1, x2, y2)
+
+        projected_full = projected / scale
+
+        fx1 = int(np.min(projected_full[:, 0, 0]))
+        fy1 = int(np.min(projected_full[:, 0, 1]))
+        fx2 = int(np.max(projected_full[:, 0, 0]))
+        fy2 = int(np.max(projected_full[:, 0, 1]))
+
+        return {
+            "name": template["name"],
+            "confidence": confidence,
+            "bbox": [fx1, fy1, fx2, fy2],
+            "polygon": projected_full.astype(int),
+            "debug": {
+                "good_matches": len(good_matches),
+                "inliers": inliers,
+                "inlier_ratio": round(inlier_ratio, 3),
+                "match_score": round(match_score, 3),
+                "geom_score": round(geom_score, 3),
+                "color_score": round(color_score, 3),
+                "stability_score": round(stability_score, 3),
+            }
+        }
+
+    def reset_tracking(self):
+        self.prev_bbox = None
+
+    def _hist_similarity(self, hist1, hist2):
+        score = cv2.compareHist(
+            hist1.astype(np.float32),
+            hist2.astype(np.float32),
+            cv2.HISTCMP_CORREL
+        )
+        return clamp01((score + 1.0) / 2.0)
+
+    def _match_score(self, inliers, total_template_kp):
+        denom = max(25, int(total_template_kp * 0.35))
+        return clamp01(inliers / denom)
+
+    def _geometry_score(self, polygon):
+        pts = polygon.reshape(-1, 2).astype(np.float32)
+
+        area = cv2.contourArea(pts)
+        if area < 400:
+            return 0.0
+
+        edges = []
+        for i in range(4):
+            p1 = pts[i]
+            p2 = pts[(i + 1) % 4]
+            edges.append(np.linalg.norm(p2 - p1))
+
+        min_edge = min(edges)
+        max_edge = max(edges)
+
+        if min_edge < 8 or max_edge <= 0:
+            return 0.0
+
+        ratio = min_edge / max_edge
+        return clamp01(0.5 + 0.5 * ratio)
+
+    def _is_valid_polygon(self, polygon, frame_shape):
+        pts = polygon.reshape(-1, 2).astype(np.float32)
+
+        area = cv2.contourArea(pts)
+        if area < 400:
+            return False
+
+        h, w = frame_shape[:2]
+
+        xs = pts[:, 0]
+        ys = pts[:, 1]
+
+        if np.max(xs) < 0 or np.max(ys) < 0:
+            return False
+        if np.min(xs) > w or np.min(ys) > h:
+            return False
+
+        x1, y1, bw, bh = cv2.boundingRect(pts.astype(np.int32))
+        if bw < 15 or bh < 15:
+            return False
+
+        return True
+
+    def _stability_score(self, current_bbox):
+        if self.prev_bbox is None:
+            return 0.5
+
+        ax1, ay1, ax2, ay2 = self.prev_bbox
+        bx1, by1, bx2, by2 = current_bbox
+
+        inter_x1 = max(ax1, bx1)
+        inter_y1 = max(ay1, by1)
+        inter_x2 = min(ax2, bx2)
+        inter_y2 = min(ay2, by2)
+
+        inter_w = max(0, inter_x2 - inter_x1)
+        inter_h = max(0, inter_y2 - inter_y1)
+        inter_area = inter_w * inter_h
+
+        area_a = max(1, (ax2 - ax1) * (ay2 - ay1))
+        area_b = max(1, (bx2 - bx1) * (by2 - by1))
+        union = max(1, area_a + area_b - inter_area)
+
+        iou = inter_area / union
+        return clamp01(iou)
+from pathlib import Path
+import tempfile
+import os
+
+from PySide6.QtWidgets import QFileDialog, QWidget, QMessageBox
+from PySide6.QtCore import Slot
+import cv2
+
+# from dinov2_pipeline.pipeline import DinoV2Pipeline
+from gui.add_part_window_ui import Ui_AddPartWindow
+from application.frame_display import FrameDisplay
+from template_manager import TemplateManager
+class AddPartWindow(QWidget, Ui_AddPartWindow):
+    videoframe: FrameDisplay
+    staticframe: FrameDisplay
+    
+    def __init__(self, parent, reference_folder="./data"):
+        super().__init__()
+        self.setupUi(self)
+        self.main_window = parent
+        self.reference_folder = reference_folder
+        self.template_manager = TemplateManager(reference_folder)
+        
+        # Убедиться что папка существует
+        os.makedirs(self.reference_folder, exist_ok=True)
+        
+        self.videoframe = FrameDisplay()
+        self.videostream_frame.layout().addWidget(self.videoframe)
+        
+        self.staticframe = FrameDisplay()
+        self.static_frame.layout().addWidget(self.staticframe)
+        
+        # self.pipeline = DinoV2Pipeline(reference_folder=self.reference_folder)
+        self._connect_signals()
+    
+    def _connect_signals(self):
+        self.snapshot_button.clicked.connect(self._on_snapshot_button_clicked)
+        self.load_image_button.clicked.connect(self._on_load_image_button_clicked)
+        self.process_template_button.clicked.connect(self._on_process_template_button_clicked)
+    
+    def _on_snapshot_button_clicked(self):
+        frame = self.videoframe.copy_frame()
+        self.staticframe.update_frames(frame)
+
+    def _on_load_image_button_clicked(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open media",
+            "",
+            "Media Files (*.jpg *.png *.bmp *.jpeg)"
+        )
+        if not file_path:
+            return
+        
+        ext = Path(file_path).suffix.lower()
+
+        if ext in [".jpg", ".jpeg", ".png", ".bmp"]:
+            image = cv2.imread(file_path)
+            self.staticframe.update_frames(image)
+    
+    @Slot()
+    def _on_process_template_button_clicked(self):
+        # """Создать новый эталон из текущего фрейма"""
+        # try:
+        #     frame = self.staticframe.copy_frame()
+        #     if frame is None:
+        #         raise ValueError("No frame selected")
+        # except Exception as e:
+        #     warn = QMessageBox()
+        #     warn.setText(f"Ошибка получения фрейма: {e}")
+        #     warn.show()
+        #     return
+        
+        # try:
+        #     name = self.part_name_lineedit.text().strip()
+        #     if not name:
+        #         raise ValueError("Part name is empty")
+        # except Exception as e:
+        #     warn = QMessageBox()
+        #     warn.setText("Введите название детали")
+        #     warn.show()
+        #     return
+        
+        # try:
+        #     # Сохраняем фрейм во временный файл
+        #     temp_path = os.path.join(tempfile.gettempdir(), f"{name}_temp.jpg")
+        #     cv2.imwrite(temp_path, frame)
+            
+        #     # Создаём эталон из временного файла
+        #     self.pipeline.create_reference(temp_path, name)
+            
+        #     # Удаляем временный файл
+        #     if os.path.exists(temp_path):
+        #         os.remove(temp_path)
+            
+        #     # Показываем успешное сообщение
+        #     success = QMessageBox()
+        #     success.setText(f"✅ Эталон '{name}' успешно создан!\n" 
+        #                   f"Сохранено в: {self.reference_folder}/{name}.npz")
+        #     success.show()
+            
+        #     # Очищаем поле ввода
+        #     self.part_name_lineedit.setText("")
+            
+        #     # Обновляем справку о доступных эталонах
+        #     refs = self.pipeline.list_references()
+        #     print(f"[AddPartWindow] Available references: {refs}")
+            
+        # except Exception as e:
+        #     error = QMessageBox()
+        #     error.setText(f"❌ Ошибка при создании эталона: {e}")
+        #     error.show()
+        #     print(f"[AddPartWindow] Error creating reference: {e}")
+        self.template_manager.add_template(self.part_name_lineedit.text().strip(), self.staticframe.copy_frame())     
+
+
+    def closeEvent(self, event):
+        self.main_window.app_controller.switch_to_main()
+        super().closeEvent(event)
+from PySide6.QtWidgets import QApplication, QMainWindow
+from gui.ui_mainwindow import Ui_MainWindow
+import sys
+from main_window import MainWindow
+
+app = QApplication()
+w = MainWindow()
+w.show()
+sys.exit(app.exec())
+import cv2
+
+
+def draw_detection(frame_bgr, detection):
+    if detection is None:
+        return frame_bgr
+
+    polygon = detection["polygon"]
+    x1, y1, x2, y2 = detection["bbox"]
+    confidence = detection["confidence"]
+    name = detection["name"]
+
+    label = f"{name} | {confidence:.1f}%"
+
+    cv2.polylines(frame_bgr, [polygon], isClosed=True, color=(0, 255, 0), thickness=2)
+    cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+    (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+
+    label_y1 = max(0, y1 - th - 10)
+    label_y2 = y1
+    label_x2 = x1 + tw + 10
+
+    cv2.rectangle(frame_bgr, (x1, label_y1), (label_x2, label_y2), (0, 255, 0), -1)
+    cv2.putText(
+        frame_bgr,
+        label,
+        (x1 + 5, y1 - 7),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (0, 0, 0),
+        2,
+        cv2.LINE_AA
+    )
+
+    return frame_bgr
+import cv2
+import numpy as np
+
+
+def resize_keep_aspect(image, max_side=960):
+    h, w = image.shape[:2]
+    scale = max_side / max(h, w)
+    if scale >= 1.0:
+        return image.copy(), 1.0
+
+    new_w = max(1, int(w * scale))
+    new_h = max(1, int(h * scale))
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    return resized, scale
+
+
+def extract_object_mask(image_bgr):
+    """
+    Выделяет объект на однотонном фоне.
+    Предполагается, что эталонная деталь сфотографирована на простом фоне.
+    """
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    h, w = hsv.shape[:2]
+
+    border_pixels = np.concatenate(
+        [
+            hsv[0, :, :],
+            hsv[h - 1, :, :],
+            hsv[:, 0, :],
+            hsv[:, w - 1, :]
+        ],
+        axis=0
+    )
+
+    bg_color = np.median(border_pixels, axis=0).astype(np.uint8)
+
+    h_tol = 15
+    s_tol = 60
+    v_tol = 60
+
+    lower = np.array(
+        [
+            max(0, int(bg_color[0]) - h_tol),
+            max(0, int(bg_color[1]) - s_tol),
+            max(0, int(bg_color[2]) - v_tol),
+        ],
+        dtype=np.uint8
+    )
+    upper = np.array(
+        [
+            min(179, int(bg_color[0]) + h_tol),
+            min(255, int(bg_color[1]) + s_tol),
+            min(255, int(bg_color[2]) + v_tol),
+        ],
+        dtype=np.uint8
+    )
+
+    bg_mask = cv2.inRange(hsv, lower, upper)
+    obj_mask = cv2.bitwise_not(bg_mask)
+
+    kernel = np.ones((5, 5), np.uint8)
+    obj_mask = cv2.morphologyEx(obj_mask, cv2.MORPH_OPEN, kernel)
+    obj_mask = cv2.morphologyEx(obj_mask, cv2.MORPH_CLOSE, kernel)
+
+    contours, _ = cv2.findContours(obj_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+
+    contour = max(contours, key=cv2.contourArea)
+
+    if cv2.contourArea(contour) < 300:
+        return None
+
+    clean_mask = np.zeros_like(obj_mask)
+    cv2.drawContours(clean_mask, [contour], -1, 255, thickness=-1)
+    return clean_mask
+
+
+def crop_by_mask(image_bgr, mask, padding=8):
+    ys, xs = np.where(mask > 0)
+    if len(xs) == 0 or len(ys) == 0:
+        return None, None, None
+
+    x1 = max(0, int(xs.min()) - padding)
+    y1 = max(0, int(ys.min()) - padding)
+    x2 = min(image_bgr.shape[1], int(xs.max()) + padding)
+    y2 = min(image_bgr.shape[0], int(ys.max()) + padding)
+
+    crop = image_bgr[y1:y2, x1:x2]
+    crop_mask = mask[y1:y2, x1:x2]
+    return crop, crop_mask, (x1, y1, x2, y2)
+
+
+def compute_hsv_hist(image_bgr, mask=None):
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    hist = cv2.calcHist([hsv], [0, 1], mask, [30, 32], [0, 180, 0, 256])
+    cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+    return hist
+
+
+def safe_gray(image_bgr):
+    return cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+from ast import main
+import os
+
+from PySide6.QtCore import QObject, QThread, Signal, Slot
+from application.frame_display import FrameDisplay
+from application.frame_grabber import FrameGrabber
+from application.frame_processor import FrameProcessor
+from application.thread_manager import ThreadManager
+# from main_window import MainWindow
+
+def create_worker(worker, thread_name: str) -> tuple:
+    thread = QThread()
+    thread.setObjectName(thread_name)
+    thread.started.connect(lambda : print(f"thread {thread_name} started"))
+    worker.moveToThread(thread)
+    thread.finished.connect(worker.deleteLater)
+    thread.finished.connect(lambda : print(f"thread {thread_name} finished"))
+    thread.start()
+    return worker, thread
+
+
+
+class AppController(QObject):
+
+    frame_grabber: FrameGrabber
+    frame_processor: FrameProcessor
+
+    set_conf_thres = Signal(int)
+    
+    def __init__(self, main_window, folder="./references"):
+        super().__init__()
+        self.folder = folder
+        self.thread_manager = ThreadManager()
+        self.main_window = main_window
+        self._create_workers()
+        self._create_connections()
+
+
+    @Slot()
+    def _create_workers(self):
+        ref_folder = os.path.join(self.folder)
+        self.frame_grabber, self.frame_grabber_thread = create_worker(FrameGrabber(), "FrameGrabberThread")
+        self.thread_manager.register(self.frame_grabber_thread)
+        self.frame_processor, self.frame_processor_thread = create_worker(FrameProcessor(ref_folder), "FrameProcessorThread")
+        self.thread_manager.register(self.frame_processor_thread)
+
+    @Slot()
+    def _create_connections(self):
+        # grabber -> processor
+        self.frame_grabber.frame_ready.connect(self.frame_processor.process)
+
+        self.frame_processor.result_ready.connect(self.main_window._update_frame)
+
+        self.set_conf_thres.connect(self.frame_processor.update_conf_thres)
+    @Slot()
+    def _disconnect_frame_grabber(self):
+        self.frame_grabber.frame_ready.disconnect()
+
+    @Slot()
+    def _connect_main_pipeline(self):
+        self._disconnect_frame_grabber()
+
+        self.frame_grabber.frame_ready.connect(self.frame_processor.process)
+
+    def update_thres(self, value):
+        self.set_conf_thres.emit(value)
+
+    def switch_to_add_part(self, display: FrameDisplay):
+        self._disconnect_frame_grabber()
+        self.frame_grabber.frame_ready.connect(display.update_frames)
+
+    def switch_to_main(self):
+        self._connect_main_pipeline()
+
+    def start_pipeline(self):
+        self.frame_grabber.start()
+
+    def stop_pipeline(self):
+        self.frame_grabber.stop()
+
+    def change_part(self, det_name):
+        print(det_name)
+        self.frame_processor.pipeline.load_reference(det_name)
+
+import os
+from PySide6.QtWidgets import QApplication, QComboBox, QWidget, QVBoxLayout
+
+
+class FileComboBox(QComboBox):
+    def __init__(self, directory):
+        super().__init__()
+        self.directory = directory
+        
+
+    def showPopup(self):
+        # print(self.directory)
+        self.clear()
+        files = [
+            f for f in os.listdir(self.directory)
+            if (os.path.isfile(os.path.join(self.directory, f)) and f.endswith(".npz"))
+        ]
+        self.addItems(files)
+
+        super().showPopup()
+
+from PySide6.QtWidgets import QLabel, QSizePolicy
+from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QImage, QPainter, QPixmap, QColor
+import cv2
+import numpy as np
+
+class FrameDisplay(QLabel):
+    def __init__(self):
+        super().__init__()
+        self.setMinimumSize(640, 480)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        self._last_frame = None
+
+        self._last_pixmap = None
+
+        self._bg_color = QColor(0, 0, 0)
+    
+    @Slot(object)
+    def update_frames(self, frame: np.ndarray):
+        self._last_frame = frame.copy()
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+
+        qimg = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
+
+        self._last_pixmap = QPixmap.fromImage(qimg)
+
+        self._update_pixmap()
+
+    def _update_pixmap(self):
+        if self._last_pixmap is None:
+            return
+        
+        scaled = self._last_pixmap.scaled(
+            self.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+
+        final_pixmap = QPixmap(self.size())
+        final_pixmap.fill(self._bg_color)
+
+        painter = QPainter(final_pixmap)
+        x = (self.width() - scaled.width())
+        y = (self.height() - scaled.height())
+        painter.drawPixmap(x, y, scaled)
+        painter.end()
+        self.setPixmap(final_pixmap)
+
+    def set_bg_color(self, color):
+        self._bg_color = color
+        self._update_pixmap()
+
+    def copy_frame(self):
+        frame = self._last_frame.copy()
+        
+        return frame
+
+       
+from PySide6.QtCore import QTimer, Signal, QObject, Slot
+import cv2
+import numpy as np
+from application.source import Source
+
+class FrameGrabber(QObject):
+    started: Signal
+    stopped: Signal
+    frame_ready = Signal(object)
+    _running: bool
+    
+    def __init__(self):
+        super().__init__()
+        self.started = Signal()
+        self.stopped = Signal()
+        self.source = None
+        self._running: bool = False
+        
+        self._timer = QTimer()
+        self._timer.timeout.connect(self.acquire)
+    
+    def set_source(self, source: Source):
+        if isinstance(source, Source):
+            print("True")
+        if self.source is not None:
+            self.source.close()
+        self.source = source
+        self.source.open()
+    
+    def start(self):
+        self._timer.start(150)
+        
+
+    def stop(self):
+        self._timer.stop()
+    
+    @Slot()
+    def acquire(self):
+        # print("FRAME_GRABBER SEND FRAME")
+        # self.frame_ready.emit(np.random.randint(0, 255, (480, 640), dtype=np.uint8))
+        frame = self.source.read()
+        if frame is None:
+            return
+        self.frame_ready.emit(frame)
+from PySide6.QtCore import QTimer, Signal, QObject, Slot
+import cv2
+import os
+
+# from dinov2_pipeline.pipeline import DinoV2Pipeline
+from template_manager import TemplateManager
+from detector import LegoDetector
+from new_pipeline.drawing import draw_detection
+class FrameProcessor(QObject):
+    started = Signal()
+    stopped = Signal()
+    result_ready = Signal(object)
+    conf_thres: float
+    _running: bool
+    
+    def __init__(self, folder="./data"):
+        super().__init__()
+        self.folder = folder
+        self._running: bool = False
+        self.desired_part = None
+        # self.pipeline = DinoV2Pipeline(reference_folder=folder)
+
+
+        # # Попытка загрузить первый доступный эталон
+        # available_refs = self.pipeline.list_references()
+        # if available_refs:
+        #     self.pipeline.load_reference(available_refs[0])
+        #     print(f"[FrameProcessor] Loaded reference: {available_refs[0]}")
+        # else:
+        #     print("[FrameProcessor] WARNING: No references found")
+
+        self.template_manager = TemplateManager("data/templates")
+        self.detector = LegoDetector()
+        self.selected_template = None
+        
+    @Slot(object)
+    def process(self, frame):
+        """
+        Обработка кадра через DINO v2 pipeline
+        """
+        # if self.pipeline.get_current_reference() is None:
+        #     # Если эталон не загружен, просто вернуть кадр
+        #     self.result_ready.emit(frame)
+        #     return
+        
+        # img, matches = self.pipeline.process_frame_with_matches(frame)
+
+        # print(f"[FrameProcessor] Found {len(matches)} matches, matches: {matches}")
+        # self.result_ready.emit(img)
+        detection = self.detector.detect(frame, self.selected_template, confidence_threshold=int(self.conf_thres*100))
+        frame = draw_detection(frame, detection)
+        self.result_ready.emit(frame)
+
+    # @Slot(int)
+    def update_conf_thres(self, value):
+        """Обновить порог сходства (значение 0-100)"""
+        self.conf_thres = value / 100
+        # self.pipeline.set_similarity_threshold(self.conf_thres)
+        
+        print(f"[FrameProcessor] Threshold updated to {self.conf_thres:.2f}")
+    # 
+    @Slot(str)
+    def switch_reference(self, reference_name):
+        """Переключиться на другой эталон"""
+        # try:
+        #     self.pipeline.load_reference(reference_name)
+        #     print(f"[FrameProcessor] Switched to reference: {reference_name}")
+        # except FileNotFoundError as e:
+        #     print(f"[FrameProcessor] Error: {e}")
+        self.template_manager.load_template(reference_name)
+        self.detector.reset_tracking()
+    
+
+if __name__ == "__main__":
+    ...
+from typing import Protocol, runtime_checkable
+import numpy as np
+
+@runtime_checkable
+class Source(Protocol):
+    """
+    Protocol which returns frames to the frame grabber
+    """
+    fps: int
+
+    # def __init__(self) -> None: 
+    #     super().__init__()
+
+    def open(self) -> None: ...
+
+    def read(self) -> np.ndarray | None: ...
+
+    def close(self) -> None: ...
+  
+from PySide6.QtCore import QThread
+
+class ThreadManager:
+    def __init__(self):
+        self._threads = []
+
+    def register(self, thread: QThread):
+        self._threads.append(thread)
+            
+    def shutdown(self):
+        for t in self._threads:
+            t.quit()
+        for t in self._threads:
+            t.wait()
+
+    
+        
